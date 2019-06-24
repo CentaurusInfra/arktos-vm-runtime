@@ -1,0 +1,2 @@
+#!/bin/sh
+go test -test.v . -args -v 3 -logtostderr true

@@ -1,0 +1,74 @@
+# FILE: topcmd.md
+## topcmd
+
+Topmost command
+
+**Synopsis**
+
+Lorem ipsum dolor sit amet
+
+
+**Subcommands**
+
+* [topcmd bar](#topcmd-bar) - Bar command
+* [topcmd foo](#topcmd-foo) - Foo command
+## topcmd bar
+
+Bar command
+
+**Synopsis**
+
+Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua
+
+```
+topcmd bar [flags]
+```
+
+## topcmd foo
+
+Foo command
+
+**Synopsis**
+
+Consectetur adipiscing elit
+
+```
+topcmd foo [flags]
+```
+
+**Examples**
+
+```
+kubectl plugin topcmd foo
+```
+
+
+**Options**
+
+
+```
+--fooflag int
+```
+foo flag
+ **(default value:** `4242`)
+
+## Global options
+
+
+```
+--anotherflag int
+```
+another flag
+ **(default value:** `42`)
+
+```
+-h, --help
+```
+help for topcmd
+
+```
+-f, --someflag string
+```
+a flag
+ **(default value:** `"someflagvalue"`)
+

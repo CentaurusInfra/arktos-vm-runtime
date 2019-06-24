@@ -1,0 +1,88 @@
+package: github.com/Mirantis/virtlet
+import:
+- package: github.com/coreos/go-systemd
+  version: 4484981625c1a6a2ecb40a390fcb6a9bcfee76e3
+- package: github.com/golang/glog
+- package: golang.org/x/net
+  version: 0ed95abb35c445290478a5348a7b38bb154135fd
+  subpackages:
+  - context
+- package: golang.org/x/crypto
+  version: d172538b2cfce0c13cee31e647d0367aa8cd2486
+  subpackages:
+  - context
+  - bpf
+- package: google.golang.org/grpc
+  version: 777daa17ff9b5daef1cfdf915088a2ada3332bf0
+- package: github.com/davecgh/go-spew
+  version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
+- package: go.universe.tf/netboot
+  subpackages:
+  - dhcp4
+- package: github.com/containernetworking/cni
+  version: v0.5.2
+- package: github.com/vishvananda/netlink
+  version: 028453c77ce572d3554b3873c654663283ac42a3
+- package: github.com/pmezard/go-difflib
+  version: ~1.0.0
+  subpackages:
+  - difflib
+- package: github.com/libvirt/libvirt-go
+  version: c3209e4ba8b8dda65c85ca0ac04302e55895caf7
+- package: github.com/libvirt/libvirt-go-xml
+  version: 661c62056664441ce89e9224e1ce401b67fa0f07
+- package: github.com/jonboulle/clockwork
+  version: bcac9884e7502bb2b474c0339d889cb981a2f27f
+- package: github.com/onsi/ginkgo
+- package: github.com/onsi/gomega
+  version: v1.4.0
+- package: golang.org/x/sync
+  subpackages:
+  - syncmap
+- package: golang.org/x/sys
+  version: 7c87d13f8e835d2fb3a70a2912c811ed0c1d241b
+  subpackages:
+  - unix
+  - windows
+- package: github.com/spf13/cobra
+  version: a1f051bc3eba734da4772d60e2d677f47cf93ef4
+- package: github.com/golang/protobuf
+  version: 4bd1920723d7b7c925de087aa32e2187708897f7
+- package: github.com/renstrom/dedent
+  version: ^1.0.0
+- package: github.com/russross/blackfriday
+  version: v2.0.0
+- package: github.com/docker/distribution
+  version: edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c
+  subpackages:
+  - reference
+- package: github.com/docker/engine-api
+  version: dea108d3aa0c67d7162a3fd8aa65f38a430019fd
+- package: github.com/opencontainers/go-digest
+  version: a6d0ee40d4207ea02364bd3b9e8e77b9159ba1eb
+- package: github.com/spf13/pflag
+  version: 4c012f6dcd9546820e378d0bdda4d8fc772cdfea
+- package: k8s.io/client-go
+  version: kubernetes-1.10.2
+- package: k8s.io/api
+  version: kubernetes-1.10.2
+- package: k8s.io/apimachinery
+  version: kubernetes-1.10.2
+- package: k8s.io/apiextensions-apiserver
+  version: kubernetes-1.10.2
+- package: k8s.io/kubernetes
+  version: v1.10.2
+- package: github.com/kballard/go-shellquote
+  version: 95032a82bc518f77982ea72343cc1ade730072f0
+- package: k8s.io/code-generator
+  version: kubernetes-1.10.2
+# glide fails to parse Godeps/Godeps.json in code-generator for some reason,
+# so some deps copied from there follow
+- package: k8s.io/gengo
+  version: 01a732e01d00cb9a81bb0ca050d3e6d2b947927b
+- package: golang.org/x/tools
+  version: 2382e3994d48b1d22acc2c86bcad0a2aff028e32
+- package: github.com/aykevl/osfs
+  version: e4b1ff739ec92f420bca98d909fffb71fc68e29c
+- package: github.com/kballard/go-shellquote
+  version: 95032a82bc518f77982ea72343cc1ade730072f0

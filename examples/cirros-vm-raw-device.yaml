@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cirros-vm-raw-device
+  annotations:
+    kubernetes.io/target-runtime: virtlet.cloud
+spec:
+  nodeSelector:
+    extraRuntime: virtlet
+
+  containers:
+    - name: cirros-vm
+      imagePullPolicy: IfNotPresent
+      image: virtlet.cloud/cirros
+      # tty and stdin required for `kubectl attach -t` to work
+      tty: true
+      stdin: true
+  volumes:
+  - name: raw
+    flexVolume:
+      driver: "virtlet/flexvolume_driver"
+      options:
+        type: raw
+        # this assumes that some file is associated with /dev/loop0 on
+        # the virtlet node using losetup
+        path: /dev/loop0
