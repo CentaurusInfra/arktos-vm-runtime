@@ -969,3 +969,17 @@ func filterContainer(containerInfo *types.ContainerInfo, filter types.ContainerF
 
 	return true
 }
+
+func (v *VirtualizationTool) RebootVM(vmID string) error {
+	domain, err := v.domainConn.LookupDomainByUUIDString(vmID)
+	if err != nil {
+		return  err
+	}
+
+	// TODO: fix to use the flag from RebootVmRequest
+	// just take the default for now
+	// https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainRebootFlagValues
+	domain.Reboot(0)
+
+	return nil
+}

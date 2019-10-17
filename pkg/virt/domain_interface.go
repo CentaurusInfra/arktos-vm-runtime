@@ -20,6 +20,7 @@ import (
 	"errors"
 
 	libvirtxml "github.com/libvirt/libvirt-go-xml"
+	libvirt "github.com/libvirt/libvirt-go"
 )
 
 const (
@@ -109,4 +110,6 @@ type Domain interface {
 	GetRSS() (uint64, error)
 	// GetCPUTime returns cpu time used by VM in nanoseconds per core
 	GetCPUTime() (uint64, error)
+	// RebootVM reboots the VM
+	Reboot(libvirt.DomainRebootFlagValues) error
 }

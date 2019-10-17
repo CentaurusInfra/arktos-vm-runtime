@@ -549,3 +549,15 @@ func validatePodSandboxConfig(config *kubeapi.PodSandboxConfig) error {
 
 	return nil
 }
+
+// RebootVM method implements RebootVM() from CRI
+func (v *VirtletRuntimeService) RebootVM(ctx context.Context, in *kubeapi.RebootVMRequest) (*kubeapi.RebootVMResponse, error) {
+	glog.V(2).Infof("Rebooting VM %s", in.VmId)
+	if err := v.virtTool.RebootVM(in.VmId); err != nil {
+		glog.Errorf("RebootVM failed with error: %v", err)
+		return nil, err
+	}
+	glog.V(2).Infof("Successfully Rebooted VM %s", in.VmId)
+	response := &kubeapi.RebootVMResponse{}
+	return response, nil
+}
