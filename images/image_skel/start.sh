@@ -21,4 +21,8 @@ verbose=
 if [[ ${VIRTLET_LOGLEVEL:-} ]]; then
     verbose="--v ${VIRTLET_LOGLEVEL}"
 fi
+
+# ensure a name service
+echo nameserver 8.8.8.8 > /etc/resolv.conf
+
 /usr/local/bin/virtlet ${verbose} $*

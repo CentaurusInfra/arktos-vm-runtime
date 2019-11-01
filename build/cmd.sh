@@ -457,6 +457,10 @@ function build_internal {
         exit 1
     fi
     install_vendor_internal
+    echo "copying the cri runtime interface file"
+    cp ${remote_project_dir}/build/api.pb.go ${remote_project_dir}/vendor/k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2/
+    echo "copy succeeded"
+
     ldflags="$(get_ldflags)"
     mkdir -p "${project_dir}/_output"
     go build -i -o "${project_dir}/_output/virtlet" -ldflags "${ldflags}" ./cmd/virtlet

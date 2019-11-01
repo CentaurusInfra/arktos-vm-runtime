@@ -561,3 +561,25 @@ func (v *VirtletRuntimeService) RebootVM(ctx context.Context, in *kubeapi.Reboot
 	response := &kubeapi.RebootVMResponse{}
 	return response, nil
 }
+
+// To be implemented
+func (v *VirtletRuntimeService) AttachNetworkInterface(ctx context.Context, in *kubeapi.DeviceAttachDetachRequest) (*kubeapi.DeviceAttachDetachResponse, error) {
+       return nil, errors.New("not implemented")
+}
+
+func (v *VirtletRuntimeService) DetachNetworkInterface(ctx context.Context, in *kubeapi.DeviceAttachDetachRequest) (*kubeapi.DeviceAttachDetachResponse, error) {
+       return nil, errors.New("not implemented")
+}
+
+func (v *VirtletRuntimeService) ListNetworkInterfaces(ctx context.Context, in *kubeapi.ListDeviceRequest) (*kubeapi.ListDeviceResponse, error) {
+       return nil, errors.New("not implemented")
+}
+
+func (v *VirtletRuntimeService) CreateSnapshot(ctx context.Context, in *kubeapi.CreateSnapshotRequest) (*kubeapi.CreateSnapshotResponse, error) {
+       return nil, errors.New("not implemented")
+}
+
+func (v *VirtletRuntimeService) RestoreToSnapshot(ctx context.Context, in *kubeapi.RestoreToSnapshotRequest) (*kubeapi.RestoreToSnapshotResponse, error) {
+       return nil, errors.New("not implemented")
+}
+
