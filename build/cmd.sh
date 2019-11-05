@@ -21,7 +21,7 @@ MKDOCS_SERVE_ADDRESS="${MKDOCS_SERVE_ADDRESS:-localhost:8042}"
 
 # Note that project_dir must not end with slash
 project_dir="$(cd "$(dirname "${BASH_SOURCE}")/.." && pwd)"
-virtlet_image="mirantis/virtlet"
+virtlet_image="alkaidstaging/vmruntime"
 remote_project_dir="/go/src/github.com/Mirantis/virtlet"
 build_name="virtlet_build"
 tmp_container_name="${build_name}-$(openssl rand -hex 16)"
@@ -591,6 +591,17 @@ function build_docs {
     )
 }
 
+function publish_image {
+   local tag=${1}
+   echo "Publishing docker image with tag: ${tag}"
+   docker tag ${virtlet_image}:latest ${virtlet_image}:${tag}
+   
+   # prompt user and password explictly
+   docker login
+   docker push  ${virtlet_image}:${tag}
+   docker logout
+}
+
 function usage {
     echo >&2 "Usage:"
     echo >&2 "  $0 build"
@@ -632,6 +643,7 @@ case "${cmd}" in
         ;;
     build)
         vcmd "SET_VIRTLET_IMAGE_TAG='${SET_VIRTLET_IMAGE_TAG:-}' build/cmd.sh build-image-internal"
+	/bin/bash -c "build/importDockerImageForCRI.sh"
         ;;
     build-image-internal)
         # this is executed inside the container
@@ -743,6 +755,13 @@ case "${cmd}" in
     sync)
         sync_source
         ;;
+    publish)
+	if [[ ! ${1:-} ]]; then
+            echo >&2 "must specify the tag"
+            exit 1
+        fi
+	publish_image ${1}
+	;;
     *)
         usage
         ;;
