@@ -19,6 +19,7 @@ package manager
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	cnitypes "github.com/containernetworking/cni/pkg/types"
@@ -564,22 +565,69 @@ func (v *VirtletRuntimeService) RebootVM(ctx context.Context, in *kubeapi.Reboot
 
 // To be implemented
 func (v *VirtletRuntimeService) AttachNetworkInterface(ctx context.Context, in *kubeapi.DeviceAttachDetachRequest) (*kubeapi.DeviceAttachDetachResponse, error) {
-       return nil, errors.New("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (v *VirtletRuntimeService) DetachNetworkInterface(ctx context.Context, in *kubeapi.DeviceAttachDetachRequest) (*kubeapi.DeviceAttachDetachResponse, error) {
-       return nil, errors.New("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (v *VirtletRuntimeService) ListNetworkInterfaces(ctx context.Context, in *kubeapi.ListDeviceRequest) (*kubeapi.ListDeviceResponse, error) {
-       return nil, errors.New("not implemented")
+	return nil, errors.New("not implemented")
 }
 
+// CreateSnapshot method implements CreateSnapshot() from CRI
 func (v *VirtletRuntimeService) CreateSnapshot(ctx context.Context, in *kubeapi.CreateSnapshotRequest) (*kubeapi.CreateSnapshotResponse, error) {
-       return nil, errors.New("not implemented")
+	glog.V(2).Infof("Creating a snapshot for VM %s", in.VmID)
+
+	err := checkSnapshotName(in.SnapshotID)
+	if err != nil {
+		return nil, err
+	}
+
+	// this flag is for future extension. So far we don't support any flags
+	if in.Flags != 0 {
+		glog.Warningf("CreateSnapshot: Current runtime server doesn't support flag %v. Ignored.", in.Flags)
+	}
+
+	if err := v.virtTool.CreateSnapshot(in.VmID, in.SnapshotID); err != nil {
+		glog.Errorf("CreateSnapshot failed for VM %s with error: %v", in.VmID, err)
+		return nil, err
+	}
+	glog.V(2).Infof("Create snapshot %s succeeded for VM %s", in.SnapshotID, in.VmID)
+
+	return &kubeapi.CreateSnapshotResponse{}, nil
 }
 
+// RestoreToSnapshot method implements RestoreToSnapshot() from CRI
 func (v *VirtletRuntimeService) RestoreToSnapshot(ctx context.Context, in *kubeapi.RestoreToSnapshotRequest) (*kubeapi.RestoreToSnapshotResponse, error) {
-       return nil, errors.New("not implemented")
+	glog.V(2).Infof("RestoreToSnapshot: Restoring VM %s to snapshot %s", in.SnapshotID, in.VmID)
+
+	err := checkSnapshotName(in.SnapshotID)
+	if err != nil {
+		return nil, err
+	}
+
+	// this flag is for future extension. So far we don't support any flags
+	if in.Flags != 0 {
+		glog.Warningf("RestoreToSnapshot: Current runtime server doesn't support flag %v. Ignored.", in.Flags)
+	}
+
+	if err := v.virtTool.RestoreToSnapshot(in.VmID, in.SnapshotID); err != nil {
+		glog.Errorf("RestoreToSnapshot: failed for VM %s with error: %v", in.VmID, err)
+		return nil, err
+	}
+	glog.V(2).Infof("RestoreToSnapshot: restore VM %s to snapshot %s successfully", in.VmID, in.SnapshotID)
+
+	return &kubeapi.RestoreToSnapshotResponse{}, nil
 }
 
+func checkSnapshotName(snapshotID string) error {
+
+	// some characters will be used internally
+	if snapshotID == "" || strings.ContainsAny(snapshotID, "\";<>/") == true {
+		return fmt.Errorf("invalid snapshot ID")
+	}
+
+	return nil
+}

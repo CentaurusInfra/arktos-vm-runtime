@@ -973,7 +973,7 @@ func filterContainer(containerInfo *types.ContainerInfo, filter types.ContainerF
 func (v *VirtualizationTool) RebootVM(vmID string) error {
 	domain, err := v.domainConn.LookupDomainByUUIDString(vmID)
 	if err != nil {
-		return  err
+		return err
 	}
 
 	// TODO: fix to use the flag from RebootVmRequest
@@ -982,4 +982,22 @@ func (v *VirtualizationTool) RebootVM(vmID string) error {
 	domain.Reboot(0)
 
 	return nil
+}
+
+func (v *VirtualizationTool) CreateSnapshot(vmID string, snapshotID string) error {
+	domain, err := v.domainConn.LookupDomainByUUIDString(vmID)
+	if err != nil {
+		return err
+	}
+
+	return domain.CreateSnapshot(snapshotID)
+}
+
+func (v *VirtualizationTool) RestoreToSnapshot(vmID string, snapshotID string) error {
+	domain, err := v.domainConn.LookupDomainByUUIDString(vmID)
+	if err != nil {
+		return err
+	}
+
+	return domain.RestoreToSnapshot(snapshotID)
 }

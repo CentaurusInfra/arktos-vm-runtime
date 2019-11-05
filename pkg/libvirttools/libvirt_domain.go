@@ -29,6 +29,10 @@ type libvirtDomainConnection struct {
 	conn libvirtConnection
 }
 
+const snapshotXMLTemplate = `<domainsnapshot>
+  								<name>%s</name>
+							 </domainsnapshot>`
+
 var _ virt.DomainConnection = &libvirtDomainConnection{}
 
 func newLibvirtDomainConnection(conn libvirtConnection) *libvirtDomainConnection {
@@ -240,6 +244,32 @@ func (domain *libvirtDomain) GetCPUTime() (uint64, error) {
 	return stats[0].CpuTime, nil
 }
 
+// Reboot reboots current domain
+func (domain *libvirtDomain) Reboot(flags libvirt.DomainRebootFlagValues) error {
+	return domain.d.Reboot(flags)
+}
+
+// CreateSnapshop creates a system snapshot for current domain
+func (domain *libvirtDomain) CreateSnapshot(snapshotID string) error {
+	spec := fmt.Sprintf(snapshotXMLTemplate, snapshotID)
+
+	// with flag 0 it will create a system snapshot for an active domain.
+	_, err := domain.d.CreateSnapshotXML(spec, 0)
+	return err
+}
+
+func (domain *libvirtDomain) RestoreToSnapshot(snapshotID string) error {
+	// the flag is not used in libvirt. Now it is requird to be always o.
+	snapshot, err := domain.d.SnapshotLookupByName(snapshotID, 0)
+	if err != nil {
+		return fmt.Errorf("Failed to retrieve snapshot %s", snapshotID)
+	}
+
+	// the default flag 0 means reverting to the domain state when the snapshot
+	// is taken, whether active or inactive
+	return snapshot.RevertToSnapshot(0)
+}
+
 type libvirtSecret struct {
 	s *libvirt.Secret
 }
@@ -250,8 +280,4 @@ func (secret *libvirtSecret) SetValue(value []byte) error {
 
 func (secret *libvirtSecret) Remove() error {
 	return secret.s.Undefine()
-}
-
-func (domain *libvirtDomain) Reboot(flags libvirt.DomainRebootFlagValues) error {
-	return domain.d.Reboot(flags)
 }

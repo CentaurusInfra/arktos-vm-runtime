@@ -19,8 +19,8 @@ package virt
 import (
 	"errors"
 
-	libvirtxml "github.com/libvirt/libvirt-go-xml"
 	libvirt "github.com/libvirt/libvirt-go"
+	libvirtxml "github.com/libvirt/libvirt-go-xml"
 )
 
 const (
@@ -112,4 +112,8 @@ type Domain interface {
 	GetCPUTime() (uint64, error)
 	// RebootVM reboots the VM
 	Reboot(libvirt.DomainRebootFlagValues) error
+	// CreateSnapshot creates a system snapshot of the current domain
+	CreateSnapshot(string) error
+	// RestoreToSnapshot restores current domain to the specified snapshot
+	RestoreToSnapshot(string) error
 }
