@@ -63,6 +63,10 @@ type PodNetworkDesc struct {
 	PodName string `json:"podName"`
 	// DNS specifies DNS settings for the pod
 	DNS *cnitypes.DNS
+	// VPC specifies VPC of the pod
+	VPC string `json:"vpc"`
+	// NICs specifies the network interfaces of the pod
+	NICs string `json:"nics"`
 }
 
 // GetFDPayload contains the data that are required by TapFDSource
@@ -149,7 +153,7 @@ func (s *TapFDSource) GetFDs(key string, data []byte) ([]int, []byte, error) {
 	defer func() {
 		if gotError {
 			if podAddedToNetwork {
-				if err := s.cniClient.RemoveSandboxFromNetwork(pnd.PodID, pnd.PodName, pnd.PodNs); err != nil {
+				if err := s.cniClient.RemoveSandboxFromNetwork(pnd.PodID, pnd.PodName, pnd.PodNs, pnd.VPC, pnd.NICs); err != nil {
 					glog.Errorf("Error removing a pod from the pod network after failed network setup: %v", err)
 				}
 			}
@@ -159,7 +163,7 @@ func (s *TapFDSource) GetFDs(key string, data []byte) ([]int, []byte, error) {
 		}
 	}()
 
-	netConfig, err := s.cniClient.AddSandboxToNetwork(pnd.PodID, pnd.PodName, pnd.PodNs)
+	netConfig, err := s.cniClient.AddSandboxToNetwork(pnd.PodID, pnd.PodName, pnd.PodNs, pnd.VPC, pnd.NICs)
 	if err != nil {
 		gotError = true
 		return nil, nil, fmt.Errorf("error adding pod %s (%s) to CNI network: %v", pnd.PodName, pnd.PodID, err)
@@ -252,7 +256,7 @@ func (s *TapFDSource) Release(key string) error {
 		return err
 	}
 
-	if err := s.cniClient.RemoveSandboxFromNetwork(pn.pnd.PodID, pn.pnd.PodName, pn.pnd.PodNs); err != nil {
+	if err := s.cniClient.RemoveSandboxFromNetwork(pn.pnd.PodID, pn.pnd.PodName, pn.pnd.PodNs, pn.pnd.VPC, pn.pnd.NICs); err != nil {
 		return fmt.Errorf("error removing pod sandbox %q from CNI network: %v", pn.pnd.PodID, err)
 	}
 
