@@ -31,9 +31,9 @@ import (
 // Client provides an interface to CNI plugins.
 type Client interface {
 	// AddSandboxToNetwork adds a pod sandbox to the CNI network.
-	AddSandboxToNetwork(podID, podName, podNs string) (*cnicurrent.Result, error)
+	AddSandboxToNetwork(podID, podName, podNs, vpc, nics string) (*cnicurrent.Result, error)
 	// RemoveSandboxFromNetwork removes a pod sandbox from the CNI network.
-	RemoveSandboxFromNetwork(podID, podName, podNs string) error
+	RemoveSandboxFromNetwork(podID, podName, podNs, vpc, nics string) error
 	// GetDummyNetwork creates a dummy network using CNI plugin.
 	// It's used for making a dummy gateway for Calico CNI plugin.
 	// It returns a CNI result and a path to the network namespace.
@@ -67,7 +67,7 @@ func (c *client) GetDummyNetwork() (*cnicurrent.Result, string, error) {
 	if err := CreateNetNS(podID); err != nil {
 		return nil, "", fmt.Errorf("couldn't create netns for fake pod %q: %v", podID, err)
 	}
-	r, err := c.AddSandboxToNetwork(podID, "", "")
+	r, err := c.AddSandboxToNetwork(podID, "", "", "", "")
 	if err != nil {
 		return nil, "", fmt.Errorf("couldn't set up CNI for fake pod %q: %v", podID, err)
 	}
@@ -75,7 +75,7 @@ func (c *client) GetDummyNetwork() (*cnicurrent.Result, string, error) {
 }
 
 // AddSandboxToNetwork implements AddSandboxToNetwork method of Client interface.
-func (c *client) AddSandboxToNetwork(podID, podName, podNs string) (*cnicurrent.Result, error) {
+func (c *client) AddSandboxToNetwork(podID, podName, podNs, vpc, nics string) (*cnicurrent.Result, error) {
 	var r cnicurrent.Result
 	if err := nsfix.NewCall("cniAddSandboxToNetwork").
 		Arg(cniRequest{
@@ -84,6 +84,8 @@ func (c *client) AddSandboxToNetwork(podID, podName, podNs string) (*cnicurrent.
 			PodID:      podID,
 			PodName:    podName,
 			PodNs:      podNs,
+			VPC:        vpc,
+			NICs:       nics,
 		}).
 		SpawnInNamespaces(&r); err != nil {
 		return nil, err
@@ -92,7 +94,7 @@ func (c *client) AddSandboxToNetwork(podID, podName, podNs string) (*cnicurrent.
 }
 
 // RemoveSandboxFromNetwork implements RemoveSandboxFromNetwork method of Client interface.
-func (c *client) RemoveSandboxFromNetwork(podID, podName, podNs string) error {
+func (c *client) RemoveSandboxFromNetwork(podID, podName, podNs, vpc, nics string) error {
 	return nsfix.NewCall("cniRemoveSandboxFromNetwork").
 		Arg(cniRequest{
 			PluginsDir: c.pluginsDir,
@@ -100,6 +102,8 @@ func (c *client) RemoveSandboxFromNetwork(podID, podName, podNs string) error {
 			PodID:      podID,
 			PodName:    podName,
 			PodNs:      podNs,
+			VPC:        vpc,
+			NICs:       nics,
 		}).
 		SpawnInNamespaces(nil)
 }
@@ -110,6 +114,8 @@ type cniRequest struct {
 	PodID      string
 	PodName    string
 	PodNs      string
+	VPC        string
+	NICs       string
 }
 
 type realClient struct {
@@ -130,7 +136,7 @@ func newRealclient(pluginsDir, configsDir string) (*realClient, error) {
 	}, nil
 }
 
-func (c *realClient) cniRuntimeConf(podID, podName, podNs string) *libcni.RuntimeConf {
+func (c *realClient) cniRuntimeConf(podID, podName, podNs, vpc, nics string) *libcni.RuntimeConf {
 	r := &libcni.RuntimeConf{
 		ContainerID: podID,
 		NetNS:       PodNetNSPath(podID),
@@ -142,6 +148,8 @@ func (c *realClient) cniRuntimeConf(podID, podName, podNs string) *libcni.Runtim
 			{"K8S_POD_NAMESPACE", podNs},
 			{"K8S_POD_NAME", podName},
 			{"K8S_POD_INFRA_CONTAINER_ID", podID},
+			{"VPC", vpc},
+			{"NICs", nics},
 		}
 	}
 	return r
@@ -154,20 +162,21 @@ func handleAddSandboxToNetwork(arg interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	rtConf := c.cniRuntimeConf(req.PodID, req.PodName, req.PodNs)
+	rtConf := c.cniRuntimeConf(req.PodID, req.PodName, req.PodNs, req.VPC, req.NICs)
 	// NOTE: this annotation is only need by CNI Genie
 	rtConf.Args = append(rtConf.Args, [2]string{
 		"K8S_ANNOT", `{"cni": "calico"}`,
 	})
-	glog.V(3).Infof("AddSandboxToNetwork: PodID %q, PodName %q, PodNs %q, runtime config:\n%s",
-		req.PodID, req.PodName, req.PodNs, spew.Sdump(rtConf))
+
+	glog.V(3).Infof("AddSandboxToNetwork: PodID %q, PodName %q, PodNs %q, VPC %q, NICs %q, runtime config:\n%s",
+		req.PodID, req.PodName, req.PodNs, req.VPC, req.NICs, spew.Sdump(rtConf))
 	result, err := c.cniConfig.AddNetworkList(c.netConfigList, rtConf)
 	if err == nil {
-		glog.V(3).Infof("AddSandboxToNetwork: PodID %q, PodName %q, PodNs %q: result:\n%s",
-			req.PodID, req.PodName, req.PodNs, spew.Sdump(result))
+		glog.V(3).Infof("AddSandboxToNetwork: PodID %q, PodName %q, PodNs %q, VPC %q, NICs %q: result:\n%s",
+			req.PodID, req.PodName, req.PodNs, req.VPC, req.NICs, spew.Sdump(result))
 	} else {
-		glog.Errorf("AddSandboxToNetwork: PodID %q, PodName %q, PodNs %q: error: %v",
-			req.PodID, req.PodName, req.PodNs, err)
+		glog.Errorf("AddSandboxToNetwork: PodID %q, PodName %q, PodNs %q, VPC %q, NICs %q: error: %v",
+			req.PodID, req.PodName, req.PodNs, req.VPC, req.NICs, err)
 		return nil, err
 	}
 	r, err := cnicurrent.NewResultFromResult(result)
@@ -184,14 +193,15 @@ func handleRemoveSandboxFromNetwork(arg interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	glog.V(3).Infof("RemoveSandboxFromNetwork: PodID %q, PodName %q, PodNs %q", req.PodID, req.PodName, req.PodNs)
-	err = c.cniConfig.DelNetworkList(c.netConfigList, c.cniRuntimeConf(req.PodID, req.PodName, req.PodNs))
+	glog.V(3).Infof("RemoveSandboxFromNetwork: PodID %q, PodName %q, PodNs %q, VPC %q, NICs %q",
+		req.PodID, req.PodName, req.PodNs, req.VPC, req.NICs)
+	err = c.cniConfig.DelNetworkList(c.netConfigList, c.cniRuntimeConf(req.PodID, req.PodName, req.PodNs, req.VPC, req.NICs))
 	if err == nil {
-		glog.V(3).Infof("RemoveSandboxFromNetwork: PodID %q, PodName %q, PodNs %q: success",
-			req.PodID, req.PodName, req.PodNs)
+		glog.V(3).Infof("RemoveSandboxFromNetwork: PodID %q, PodName %q, PodNs %q, VPC %q, NICs %q: success",
+			req.PodID, req.PodName, req.PodNs, req.VPC, req.NICs)
 	} else {
-		glog.Errorf("RemoveSandboxFromNetwork: PodID %q, PodName %q, PodNs %q: error: %v",
-			req.PodID, req.PodName, req.PodNs, err)
+		glog.Errorf("RemoveSandboxFromNetwork: PodID %q, PodName %q, PodNs %q, VPC %q, NICs %q: error: %v",
+			req.PodID, req.PodName, req.PodNs, req.VPC, req.NICs, err)
 	}
 	return nil, err
 }
