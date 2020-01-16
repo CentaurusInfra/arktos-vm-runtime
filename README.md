@@ -1,97 +1,54 @@
-# virtlet [![CircleCI](https://circleci.com/gh/Mirantis/virtlet/tree/master.svg?style=svg)](https://circleci.com/gh/Mirantis/virtlet/tree/master) [![Maintainability](https://api.codeclimate.com/v1/badges/7e40b1e1d7cd78c86a50/maintainability)](https://codeclimate.com/github/Mirantis/virtlet/maintainability) [![Go Report Card](https://goreportcard.com/badge/github.com/Mirantis/virtlet)](https://goreportcard.com/report/github.com/Mirantis/virtlet)
+# ALKAID-VM-RUNTIME
 
-Virtlet is a Kubernetes runtime server which allows you to run VM workloads, based on QCOW2 images.
+Alkaid-vm-runtime is a runtime service for [Alkaid](https://github.com/futurewei-cloud/alkaid) cluster to run VM workloads.
 
-It is possible to run Virtlet by following the instructions from either [Setting up the environment](https://docs.virtlet.cloud/dev/setup/) or [Deploying Virtlet as a DaemonSet on kubeadm-dind-cluster](https://docs.virtlet.cloud/user-guide/virtlet-on-kdc/) documents. There's also [separate document](https://docs.virtlet.cloud/user-guide/real-cluster/) describing the process of installing Virtlet on real clusters.
+Alkaid-vm-runtime implements the extended CRI interface defined in Alkaid cluster to support VM workloads. It is based 
+on and evolved from [Mirantis Virtlet project](https://github.com/Mirantis/virtlet) with  the extension to current CRI 
+interface implementation.
 
-[See here](https://docs.virtlet.cloud/dev/architecture/) for the description of Virtlet architecture.
+## Major features
+### Support for VM workload specific operations
+Alkaid-vm-runtime extends the current CRI interfaces with initial set of methods to support VM operations, as listed below:
 
-## Description & Documentation
+	// RebootVM reboots the VM domain and returns error msg if there is any
+	RebootVM(ctx context.Context, in *RebootVMRequest, opts ...grpc.CallOption) (*RebootVMResponse, error)
+	// CreateSnapshot creates a snapshot of the current VM domain
+	CreateSnapshot(ctx context.Context, in *CreateSnapshotRequest, opts ...grpc.CallOption) (*CreateSnapshotResponse, error)
+	// RestoreToSnapshot restores the current VM domain to the given snapshot
+	RestoreToSnapshot(ctx context.Context, in *RestoreToSnapshotRequest, opts ...grpc.CallOption) (*RestoreToSnapshotResponse, error)
+	// AttachNetworkInterface adds new NIC to the POD-VM
+	AttachNetworkInterface(ctx context.Context, in *DeviceAttachDetachRequest, opts ...grpc.CallOption) (*DeviceAttachDetachResponse, error)
+	// DetachNetworkInterface removes a NIC to the POD-VM
+	DetachNetworkInterface(ctx context.Context, in *DeviceAttachDetachRequest, opts ...grpc.CallOption) (*DeviceAttachDetachResponse, error)
+	// ListNetworkInterfaces lists NICs attached to the POD-VM
+	ListNetworkInterfaces(ctx context.Context, in *ListDeviceRequest, opts ...grpc.CallOption) (*ListDeviceResponse, error)
 
-[See here](https://docs.virtlet.cloud) for user-facing Virtlet description and documentation.
+### VM centric runtime service
+Alkaid supports VM workload and multiple tenants natively. As a runtime service designed to support Alkaid, Alkaid-vm-runtime 
+bridges the NICs/VPCs from the Alkaid node agent to the CNI, with extension to the current CRI's PodSandboxConfig with 
+new VPC and NICs fields. Alkaid runtime also retrieves information for other VM specific elements such as TTY, CloudInit etc.
+from the virtual machine workload definition to the underlying Libvirt component for those VM specific features.
 
-## Community
 
-You can join
-[#virtlet](https://kubernetes.slack.com/messages/virtlet/) channel on
-[Kubernetes Slack](https://kubernetes.slack.com/messages)
-(register at [slack.k8s.io](http://slack.k8s.io) if you're not in k8s group already). Both the
-users and developers are welcome!
+## Build and publish Alkaid-vm-runtime images
+Alkaid-vm-runtime inherits Virtlet's build logic, with addition to publish the runtime docker images with specific tags.
+For example, the following commands will build the Alkaid-vm-runtime docker image and publish it to docker repo with
+tag "0.5.2"
 
-## Getting started with Virtlet
+     ./build/cmd.sh build/
+     ./build/cmd.sh publish "0.5.2"
 
-To try out Virtlet follow the instructions from [Setting up the environment](https://docs.virtlet.cloud/dev/setup/) and [try out examples](examples/README.md) documents.
+## Using Alkaid-vm-runtime with Alkaid cluster for VM type
+Alkaid is fully automated to use the Alkaid-vm-runtime as default VM runtime service. The alkaid-up.sh in the Alkaid 
+project can be used to start a onebox Alkaid cluster and use Alkaid-vm-runtime for VM type workload.
 
-### Virtlet introduction video
+## Work in progress
+The Alkaid-vm-runtime is still in its early stage. There are quite a few efforts planned in order to make this a complete 
+runtime service for VM workloads. 
+1. Support More VM actions
+2. Simplify the networking design
+3. Cleaner Interface definitions and dedicated interfaces for VM workload type
 
-You can watch and listen to Virtlet demo video that was recorded on Kubernetes Community Meeting [here](https://youtu.be/Sl1Y0N-Tj1A?t=94).
-
-### Command line interface
-
-Virtlet comes with a helper tool,
-[virtletctl](https://docs.virtlet.cloud/reference/virtletctl/), that helps managing the VM pods. The binaries are available for Linux and Mac OS X in the [Releases](https://github.com/Mirantis/virtlet/releases) section.
-You can also install virtletctl as a kubectl plugin:
-```
-virtletctl install
-```
-
-After that you can use `kubectl plugin virt` instead of `virtletctl` (`plugin` subcommand will not be necessary when kubectl plugins become stable):
-```
-kubectl plugin virt ssh cirros@cirros-vm -- -i examples/vmkey
-```
-
-### Virtlet usage demo
-
-You can watch sample usage session under [this](https://asciinema.org/a/1a6xp5j4o22rnsx9wpvumd4kt) link.
-
-You can also give Virtlet a quick try using our demo script (requires Docker 1.12+):
-```
-wget https://raw.githubusercontent.com/Mirantis/virtlet/master/deploy/demo.sh
-chmod +x demo.sh
-# './demo.sh --help' displays the description
-./demo.sh
-```
-
-The demo will start a test cluster, deploy Virtlet on it and then boot a [CirrOS](https://launchpad.net/cirros) VM there. You may access sample nginx server via `curl http://nginx.default.svc.cluster.local` from inside the VM. To disconnect from VM, press `Ctrl-D`. After the VM has booted, you can also use `virtletctl` tool to connect to its SSH server:
-```
-virtletctl ssh cirros@cirros-vm -- -i examples/vmkey [command...]
-```
-
-By default, CNI bridge plugin is used for cluster networking. It's also possible to override this with `calico`, `flannel` or `weave` plugin, e.g.:
-```
-CNI_PLUGIN=flannel ./demo.sh
-```
-
-There's also an option to deploy Virtlet on master node of the DIND
-cluster, which can be handy e.g. if you don't want to use worker nodes
-(i.e. start the cluster with `NUM_NODES=0`):
-```
-VIRTLET_ON_MASTER=1 ./demo.sh
-```
-
-The demo script will check for KVM support on the host and will make Virtlet use KVM if it's available on Docker host. If KVM is not available, plain QEMU will be used.
-
-The demo is based on [kubeadm-dind-cluster](https://github.com/kubernetes-sigs/kubeadm-dind-cluster) project. **Docker btrfs storage driver is currently unsupported.** Please refer to `kubeadm-dind-cluster` documentation for more info.
-
-You can remove the test cluster with `./dind-cluster-v1.14.sh clean` when you no longer need it.
-
-## External projects using Virtlet
-There are some external projects using Virtlet already.
-One interesting usecase is that of [MIKELANGELO project](https://www.mikelangelo-project.eu/) that
-runs [OSv unikernels](http://osv.io) on Kubernetes using Virtlet. Unikernels are special case of VMs
-that are extremely small in size (20MB or so) and can only run a single process each. Nevertheless,
-Virtlet has no problems handling them on Kubernetes as demonstrated in this
-[video](https://www.youtube.com/watch?v=L-QrxDJSZBA). Microservice Demo is available
-[here](https://github.com/mikelangelo-project/osv-microservice-demo#deploying-unikernels-on-kubernetes).
-
-## Need any help with Virtlet?
-
-If you will encounter any issue when using Virtlet please look into our [issue tracker](http://github.com/Mirantis/virtlet/issues) on github. If your case is not mentioned there - please fill new issue for it. In case of any questions you may also use [#virtlet](https://kubernetes.slack.com/messages/virtlet/) channel on
-[Kubernetes Slack](https://kubernetes.slack.com/messages).
-
-## Contributing
-
-Virtlet is an open source project and any contributions are welcomed. Look into [Contributing guidelines](CONTRIBUTING.md) document for our guidelines and further instructions on how to set up Virtlet development environment.
 
 ## Licensing
 
