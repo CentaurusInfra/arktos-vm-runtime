@@ -1,17 +1,11 @@
 # Contributing guidelines
 
-## How to become a contributor and submit your own code
-
-### Contributor License Agreements
-
-We'd love to accept your patches! Before we can take them, we have to jump a couple of legal hurdles.
-
-After you submit PR automatic bot will check CLA status, you will be asked to sign one if you didn't sign it before. You can find CLA contents [there](https://cla-assistant.io/Mirantis/virtlet).
+Please follow the general [guidelines](https://github.com/futurewei-cloud/alkaid/blob/master/CONTRIBUTING.md) described in Alkaid project.
 
 ### Contributing A Patch
 
 1. Fork the desired repo, develop and test your code changes.
-1. Verify that your code changes follows our [guidelines](docs/devel/guidelines.md)
+1. Verify that your code changes follows Alkaid contributor guidelines
 1. Submit a pull request.
 
 ### Adding dependencies
