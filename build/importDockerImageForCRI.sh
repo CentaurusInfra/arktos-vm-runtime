@@ -3,7 +3,7 @@
 WORKING_DIR=/tmp/containerd
 CRI_CONFIG_FILE=${WORKING_DIR}/etc/crictl.yaml
 CONTAINERD_SOCK_PATH="/run/containerd/containerd.sock"
-DOCKER_IMAGE_NAME="alkaidstaging/vmruntime:latest"
+DOCKER_IMAGE_NAME="arktosstaging/vmruntime:latest"
 LOCAL_IMAGE_FILE="localimage.tar"
 
 if ! systemctl is-active --quiet containerd; then

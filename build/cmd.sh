@@ -21,7 +21,7 @@ MKDOCS_SERVE_ADDRESS="${MKDOCS_SERVE_ADDRESS:-localhost:8042}"
 
 # Note that project_dir must not end with slash
 project_dir="$(cd "$(dirname "${BASH_SOURCE}")/.." && pwd)"
-virtlet_image="alkaidstaging/vmruntime"
+virtlet_image="arktosstaging/vmruntime"
 remote_project_dir="/go/src/github.com/Mirantis/virtlet"
 build_name="virtlet_build"
 tmp_container_name="${build_name}-$(openssl rand -hex 16)"

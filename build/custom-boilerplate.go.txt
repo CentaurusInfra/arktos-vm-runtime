@@ -1,6 +1,6 @@
 /*
 Copyright YEAR Mirantis
-Copyright YEAR Authors of Alkaid – file modified
+Copyright YEAR Authors of Arktos – file modified
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
