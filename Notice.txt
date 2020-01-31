@@ -1,0 +1,16 @@
+Source Work files obtained from https://github.com/Mirantis/virtlet Repository.
+Source Work files changed by Arktos Authors, Copyright 2020 Arktos Authors:
+
+    build/cmd.sh
+    build/importDockerImageForCRI.sh
+    images/Dockerfile.virtlet
+    images/image_skel/start.sh
+
+ 
+Arktos Authors modified the Source Work files listed above.  No other Source Work files included in the 0.1.1 Release were changed.
+
+Arktos Authors did not alter, delete, or otherwise change any pre-existing copyright, patent, or trademark notices included in any of the Source Work files.
+ 
+Arktos Authors did not alter, delete, or otherwise change any pre-existing Change Notices included in any of the Source Work files.
+ 
+Arktos Authors did not alter, delete, or otherwise change any pre-existing ownership listings or descriptions included in any of the Source Work files.
