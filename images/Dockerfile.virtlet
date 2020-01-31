@@ -4,8 +4,8 @@
 FROM mirantis/virtlet-base:v1-6348ee2277c565d3895260bccb5ada96
 MAINTAINER Ivan Shvedunov <ishvedunov@mirantis.com>
 
-LABEL alkaidstaging.image="alkaidstaging"
-LABEL alkaidstaging.build="internal"
+LABEL arktosstaging.image="arktosstaging"
+LABEL arktosstaging.build="internal"
 
 COPY image_skel /.
 COPY _output/flexvolume_driver /
