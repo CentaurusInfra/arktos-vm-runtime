@@ -1,6 +1,6 @@
 # Contributing guidelines
 
-Please follow the general [guidelines](https://github.com/futurewei-cloud/alkaid/blob/master/CONTRIBUTING.md) described in Arktos project.
+Please follow the general [guidelines](https://github.com/futurewei-cloud/arktos/blob/master/CONTRIBUTING.md) described in Arktos project.
 
 ### Contributing A Patch
 

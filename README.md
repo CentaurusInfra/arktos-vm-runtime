@@ -1,6 +1,6 @@
 # ARKTOS-VM-RUNTIME
 
-Arktos-vm-runtime is a runtime service for [Arktos](https://github.com/futurewei-cloud/alkaid) cluster to run VM workloads.
+Arktos-vm-runtime is a runtime service for [Arktos](https://github.com/futurewei-cloud/arktos) cluster to run VM workloads.
 
 Arktos-vm-runtime implements the extended CRI interface defined in Arktos cluster to support VM workloads. It is based 
 on and evolved from [Mirantis Virtlet project](https://github.com/Mirantis/virtlet) with  the extension to current CRI 
