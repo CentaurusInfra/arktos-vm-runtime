@@ -164,7 +164,10 @@ func (ldh *LogicalDeviceHandler) Map(devPath, dmName string, imageSize uint64) e
 	}
 
 	dmTable := fmt.Sprintf("0 %d linear %s 1\n", nSectors-1, hostPath)
-	_, err = ldh.commander.Command("dmsetup", "create", dmName).Run([]byte(dmTable))
+
+	// A temp workaround for an issue in dmsetup where sometimes hangs with "dmsetup create" command till we upgrade kernel with a fix
+	// The issue is well described here: https://www.redhat.com/archives/linux-lvm/2017-October/msg00073.html
+	_, err = ldh.commander.Command("dmsetup", "create", dmName, "--noudevsync").Run([]byte(dmTable))
 	return err
 }
 
