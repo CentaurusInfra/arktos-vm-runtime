@@ -15,6 +15,7 @@ profile virtlet flags=(attach_disconnected) {
   capability sys_ptrace,
   network inet raw,
   network inet6 raw,
+  network bridge raw,
 
   / r,
   /bin/sleep ix,
@@ -47,9 +48,12 @@ profile virtlet flags=(attach_disconnected) {
   /var/lib/libvirt/*.sock rw,
   /var/lib/virtlet/** rwk,
   /var/lib/kubelet/pods/** rw,
+  /var/lib/containerd/** rw,
+  /run/secrets/kubernetes.io/** rw,
   /var/log/pods/** rw,
   /{var/,}tmp/{,**} rw,
 
+  @{PROC}/@{pid}/mountinfo r,
   @{PROC}/@{pid}/net/psched r,
   @{PROC}/@{pid}/net/ipv6_route r,
   @{PROC}/@{pid}/status r,
@@ -67,6 +71,13 @@ profile virtlet flags=(attach_disconnected) {
   /run/netns/ rw,
   /run/netns/* rw,
 
+  /run/mount/* rw,
+
+  /bin/mount rwix,
+  /bin/mount/** wrcix,
+  /dev/mapper/** rw,
+  /proc/devices r,
+
   /sys/class/net/ r,
   /sys/devices/pci*/*/*/ r,
   /sys/devices/pci*/*/*/* r,
@@ -74,5 +85,11 @@ profile virtlet flags=(attach_disconnected) {
   /sys/bus/pci/devices/ r,
   /sys/bus/pci/devices/*/driver/unbind w,
 
+  /sbin/* ix,
+  /run/* rcxwk,
+  /proc/sys/net/** rwix,
+  /var/lib/cni/networks/** rcxwk,
+  /etc/resolv.conf rw,
+  /etc/libvirt/* rw,
   /start.sh r,
 }
