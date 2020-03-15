@@ -1,0 +1,307 @@
+#!/bin/bash
+
+# Copyright 2020 Authors of Arktos.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Notes:
+# This is simple flex volume driver to demostrate use of Cinder static volume
+# for Arktos cluster along with Arktos vm runtime
+# It uses Cinder client and Cinder extended APIs for local attach/detach support
+# packages required:
+# JQ
+# python-cinderclient
+# python-brick-cinderclient-ext
+#
+usage() {
+        err "Invalid usage. Usage: "
+        err "\t$0 init"
+        err "\t$0 attach <json params> <nodename>"
+        err "\t$0 detach <mount device> <nodename>"
+        err "\t$0 waitforattach <mount device> <json params>"
+        err "\t$0 mountdevice <mount dir> <mount device> <json params>"
+        err "\t$0 unmountdevice <mount dir>"
+        err "\t$0 unmount <mount dir>"
+        err "\t$0 isattached <json params> <nodename>"
+        exit 1
+}
+
+err() {
+        echo -ne $* 1>&2
+}
+
+log() {
+        echo -ne $* >&1
+}
+
+logfile() {
+        echo $(date -u +%Y-%m-%dT%H:%M:%SZ) "INFO: " $*  >> /tmp/cinderflexvol_driver.log
+}
+
+#
+# Set the environment variables per your test env
+# Those are used by the cinder client
+#
+setEnv() {
+        export OS_PROJECT_ID=3ab2fbaaf99d422f980c97c4b5092f4b
+        export OS_USER_DOMAIN_ID=default
+        export OS_AUTH_URL=http://172.31.14.52/identity
+        export OS_PASSWORD=OSPASSWORD
+        export OS_USERNAME=admin
+}
+
+getDevice() {
+        VOLUMEID=$1
+        setEnv
+        DMDEV=$(/usr/local/bin/cinder get-volume-paths ${VOLUMEID})
+        echo $(getRealDevice ${DMDEV})
+}
+
+getRealDevice() {
+        readlink -f $1
+}
+
+attach() {
+        logfile "Attach cinder volume to local host" "Args $*"
+        JSON_PARAMS=$1
+        logfile "JSON_PARAMS: " $JSON_PARAMS
+
+        VOLUMEID=$(echo ${JSON_PARAMS} | jq -r '.cinderVolumeID')
+        logfile "Got volumeID: "  ${VOLUMEID}
+
+        setEnv
+        /usr/local/bin/cinder local-attach ${VOLUMEID} &> /dev/null
+
+        if [ $? -ne 0 ]; then
+                err "{\"status\": \"Failure\", \"message\": \"Attach OP failed\"}"
+                exit 1
+        fi
+
+        DMDEV=$(getDevice ${VOLUMEID})
+        if [ "${DMDEV}" == "" ]; then
+                exit 1
+        fi
+
+        log "{\"status\": \"Success\", \"device\":\"${DMDEV}\"}"
+        exit 0
+}
+
+detach() {
+        logfile "Detach volume" "Args $*"
+        setEnv
+
+        # For a non-demo implementation, the driver usually keep a map for the volumes and devices
+        # and retrieve the info from the map
+        #
+        # TODO: get the volume from the get-all-volume-paths call
+        #
+        VOLUMEID="3ea0a79e-8ebc-4690-a035-7816c6e7159b"
+        /usr/local/bin/cinder local-detach ${VOLUMEID} &> /dev/null
+        if [ $? -ne 0 ]; then
+                err "{ \"status\": \"Failed\", \"message\": \"Failed to detach volume ${VOLUMEID}\"}"
+                exit 1
+        fi
+
+        log "{\"status\": \"Success\"}"
+        exit 0
+
+}
+
+waitforattach() {
+        logfile "WaitForAttach" "Args S*"
+        EXPECTED_DEV=$1
+        JSON_PARAMS=$2
+
+        logfile "Expected device:" $EXPECTED_DEV
+        logfile "JSON_PARAMS:" $JSON_PARAMS 
+        
+        # the attach-detach controller will timeout 10 minutes anyway
+        #
+        c=1
+        while [ $c -le 100 ]
+        do
+                setEnv
+                VOLUMEID=$(echo ${JSON_PARAMS} | jq -r '.cinderVolumeID')
+                DMDEV=$(getDevice ${VOLUMEID})
+
+                if [ "${EXPECTED_DEV}" == "${DMDEV}" ]; then
+                        log "{\"status\": \"Success\", \"device\":\"${DMDEV}\"}"
+                        exit 0
+                fi
+
+                sleep 6
+                (( c++ ))
+        done
+
+        ex
+	it 0
+}
+
+isattached() {
+        logfile "IsAttached check if volume is attached" "Args $*"
+        JSON_PARAMS=$1
+        logfile"JSON_PARAMS: " $JSON_PARAMS
+
+        setEnv
+        VOLUMEID=$(echo ${JSON_PARAMS} | jq -r '.cinderVolumeID')
+        DMDEV=$(getDevice ${VOLUMEID})
+        
+        if [ "${DMDEV}" != "" ]; then
+                log "{\"status\": \"Success\", \"attached\":true}"
+        else
+                log "{\"status\": \"Success\", \"attached\":false}"
+        fi
+        exit 0
+}
+
+domountdevice() {
+        logfile "Mount to local file system" "Args $*"
+        MNTPATH=$1
+        DMDEV=$2
+        JSON_PARAMS=$3
+
+        FSTYPE=$(echo ${JSON_PARAMS} | jq -r '.["kubernetes.io/fsType"]')
+        TYPE=$(echo ${JSON_PARAMS} | jq -r '.type')
+
+        logfile "FS type: " $FSTYPE
+        
+        logfile "Mount path: " $MNTPATH 
+        logfile "DMDEV: "  $DMDEV  
+        logfile "FS type: " $FSTYPE 
+
+        if [ ! -b "${DMDEV}" ]; then
+                err "{\"status\": \"Failure\", \"message\": \"${DMDEV} does not exist\"}"
+                exit 1
+        fi
+
+        if [ $(ismounted) -eq 1 ] ; then
+                log "{\"status\": \"Success\"}"
+                exit 0
+        fi
+
+        VOLFSTYPE=`blkid -o udev ${DMDEV} 2>/dev/null|grep "ID_FS_TYPE"|cut -d"=" -f2`
+
+        if [ "${VOLFSTYPE}" == "" ]; then
+                mkfs -t ${FSTYPE} ${DMDEV} >/dev/null 2>&1
+                if [ $? -ne 0 ]; then
+                        err "{ \"status\": \"Failure\", \"message\": \"Failed to create fs ${FSTYPE} on device ${DMDEV}\"}"
+                        exit 1
+                fi
+        fi
+
+        mkdir -p ${MNTPATH} &> /dev/null
+        logfile "Start Mount "  ${DMDEV} ${MNTPATH} 
+
+        mount ${DMDEV} ${MNTPATH} &> /dev/null
+        if [ $? -ne 0 ]; then
+                err "{ \"status\": \"Failure\", \"message\": \"Failed to mount device ${DMDEV} at ${MNTPATH}\"}"
+                exit 1
+        fi
+
+        #
+        # put the flex volume information for virtlet flexvolume resource to consume
+        #
+        echo ${JSON_PARAMS} | jq --arg volpath ${DMDEV} '. + {path: $volpath}' > ${MNTPATH}/virtlet-flexvolume.json
+        # echo ${JSON_PARAMS} > ${MNTPATH}/virtlet-flexvolume.json
+        if [ $? -ne 0 ]; then
+                err "{ \"status\": \"Failure\", \"message\": \"Failed to call mounter""}"
+                exit 1
+        fi
+
+        logfile "Mount completed" 
+        log "{\"status\": \"Success\"}"
+        exit 0
+}
+
+unmountdevice() {
+        logfile "Unmount from local file system" "Args $*"
+        MNTPATH=$1
+
+        if [ ! -d ${MNTPATH} ]; then
+                log "{\"status\": \"Success\"}"
+                exit 0
+        fi
+
+        if [ $(ismounted) -eq 0 ] ; then
+                log "{\"status\": \"Success\"}"
+                exit 0
+        fi
+
+        umount ${MNTPATH} &> /dev/null
+        if [ $? -ne 0 ]; then
+                err "{ \"status\": \"Failed\", \"message\": \"Failed to unmount volume at ${MNTPATH}\"}"
+                exit 1
+        fi
+
+        rm -r -f $MNTPATH &> /dev/null
+        if [ $? -ne 0 ]; then
+                err "{ \"status\": \"Failed\", \"message\": \"Failed to delete directory ${MNTPATH}\"}"
+                exit 1
+        fi
+
+        log "{\"status\": \"Success\"}"
+        exit 0
+}
+
+ismounted() {
+        MOUNT=`findmnt -n ${MNTPATH} 2>/dev/null | cut -d' ' -f1`
+        if [ "${MOUNT}" == "${MNTPATH}" ]; then
+                echo "1"
+        else
+                echo "0"
+        fi
+}
+
+op=$1
+
+if [ "$op" = "init" ]; then
+        logfile "Init start" 
+        log "{\"status\": \"Success\"}"
+        exit 0
+fi
+
+if [ $# -lt 2 ]; then
+        usage
+fi
+
+shift
+
+case "$op" in
+        attach)
+                attach $*
+                ;;
+        detach)
+                detach $*
+                ;;
+        waitforattach)
+                waitforattach $*
+                ;;
+        mountdevice)
+                domountdevice $*
+                ;;
+        unmountdevice)
+                unmountdevice $*
+                ;;
+        unmount)
+                unmountdevice $*
+                ;;
+        isattached)
+                isattached $*
+                ;;
+        *)
+                log "{\"status\": \"Not supported\"}"
+                exit 0
+esac
+
+exit 1
+
