@@ -37,6 +37,7 @@ usage() {
 }
 
 err() {
+        logfile "ERROR: " $*
         echo -ne $* 1>&2
 }
 
@@ -64,6 +65,13 @@ getDevice() {
         VOLUMEID=$1
         setEnv
         DMDEV=$(/usr/local/bin/cinder get-volume-paths ${VOLUMEID})
+        
+        # if volume path is empty, the volume is not attached to the host
+        # return empty and the isattached function will handle	
+        if [ "${DMDEV}" == "" ]; then
+                echo ""
+		exit 0
+        fi
         echo $(getRealDevice ${DMDEV})
 }
 
@@ -71,16 +79,80 @@ getRealDevice() {
         readlink -f $1
 }
 
+#
+# persisted volume metadata and add/remove/get operations 
+# 
+getVolumeFile() {
+        echo /var/lib/virtlet/volumes.json
+}
+
+saveVolume() {
+        logfile "saveVolumeMap" "Args $1 $2"
+        volumeFile=$(getVolumeFile)
+        result=$(jq --arg specName $1 --arg cinderVolumeId $2 '.volumes[$specName] = $cinderVolumeId' < ${volumeFile}) &> /dev/null
+
+        # just log out and let the caller handle the error situation	
+        if [ $? -ne 0 ]; then
+                logfile "Failed to save volume to local map"
+                exit 1
+        fi
+
+        logfile "echo result to file" $result
+        echo $result > ${volumeFile}	
+}
+
+removeVolume() {
+        logfile "removeVolumeFromMap" "Args $1"
+        volumeFile=$(getVolumeFile)
+        result=$(jq --arg specName $1 'del(.volumes[$specName])' < ${volumeFile}) &> /dev/null
+        
+        # just log out and let the caller handle the error situation
+        if [ $? -ne 0 ]; then
+                logfile "Failed to remove volume to local map"
+                exit 1
+        fi
+
+        logfile "echo result to file" $result
+        echo $result > ${volumeFile}
+}
+
+getCinderVolumeIdForPodVolume() {
+        logfile "getCinderVolumeIdForPodVolume" "Args $1"
+
+        volumeFile=$(getVolumeFile)
+        VOLUMEID=$(jq --arg specName $1 -r '.volumes[$specName]' < ${volumeFile}) &> /dev/null
+        
+        if [ $? -ne 0 ]; then
+                logfile "Failed to query volume to local map"
+                exit 1
+        fi
+
+        # just log out and let the caller handle the error situation
+        if [ "${VOLUMEID}" == "null" ]; then
+	        logfile "volume does not exist: " $1	
+        fi
+
+	logfile "got volumeId: " ${VOLUMEID}
+
+        echo ${VOLUMEID}
+}
+
+#
+# flex volume driver interface implementation
+#
 attach() {
         logfile "Attach cinder volume to local host" "Args $*"
         JSON_PARAMS=$1
         logfile "JSON_PARAMS: " $JSON_PARAMS
 
+        VOLUMENAME=$(echo ${JSON_PARAMS} | jq -r '.["kubernetes.io/pvOrVolumeName"]')
+        logfile "Got volumeName: " ${VOLUMENAME}
+
         VOLUMEID=$(echo ${JSON_PARAMS} | jq -r '.cinderVolumeID')
-        logfile "Got volumeID: "  ${VOLUMEID}
+        logfile "Got volumeID: " ${VOLUMEID}
 
         setEnv
-        /usr/local/bin/cinder local-attach ${VOLUMEID} &> /dev/null
+        /usr/local/bin/cinder local-attach "${VOLUMEID}" &> /dev/null
 
         if [ $? -ne 0 ]; then
                 err "{\"status\": \"Failure\", \"message\": \"Attach OP failed\"}"
@@ -89,8 +161,16 @@ attach() {
 
         DMDEV=$(getDevice ${VOLUMEID})
         if [ "${DMDEV}" == "" ]; then
+                err "{\"status\": \"Failure\", \"message\": \"No device created\"}"
                 exit 1
         fi
+
+        #
+        # persist the volume to local map for detach
+        # TODO: handle error case, retry or rollback the attach OP if needed
+        #
+        logfile "Add volume to local map"
+        saveVolume ${VOLUMENAME} ${VOLUMEID}
 
         log "{\"status\": \"Success\", \"device\":\"${DMDEV}\"}"
         exit 0
@@ -98,19 +178,29 @@ attach() {
 
 detach() {
         logfile "Detach volume" "Args $*"
-        setEnv
+        VOLUMENAME=$1
 
-        # For a non-demo implementation, the driver usually keep a map for the volumes and devices
-        # and retrieve the info from the map
-        #
-        # TODO: get the volume from the get-all-volume-paths call
-        #
-        VOLUMEID="3ea0a79e-8ebc-4690-a035-7816c6e7159b"
+        VOLUMEID=$(getCinderVolumeIdForPodVolume ${VOLUMENAME})
+
+        if [ "${VOLUMEID}" == "null" ] || [ "${VOLUMEID}" == "" ]; then
+                logfile "volume does not exist: " $1 "No Action in detach OP"
+                log "{\"status\": \"Success\"}"
+                exit 0
+        fi
+
+        logfile "Local detach Cinder volume: " ${VOLUMEID}
+
+        setEnv
         /usr/local/bin/cinder local-detach ${VOLUMEID} &> /dev/null
         if [ $? -ne 0 ]; then
                 err "{ \"status\": \"Failed\", \"message\": \"Failed to detach volume ${VOLUMEID}\"}"
                 exit 1
         fi
+        
+        # remove the volume from the local map
+        # TODO: handle error case, retry to just leave the orphaned volume in the map and have a GC function to clean them up
+        #
+        removeVolume ${VOLUMENAME}
 
         log "{\"status\": \"Success\"}"
         exit 0
@@ -118,7 +208,7 @@ detach() {
 }
 
 waitforattach() {
-        logfile "WaitForAttach" "Args S*"
+        logfile "WaitForAttach" "Args $*"
         EXPECTED_DEV=$1
         JSON_PARAMS=$2
 
@@ -150,7 +240,7 @@ waitforattach() {
 isattached() {
         logfile "IsAttached check if volume is attached" "Args $*"
         JSON_PARAMS=$1
-        logfile"JSON_PARAMS: " $JSON_PARAMS
+        logfile "JSON_PARAMS: " $JSON_PARAMS
 
         setEnv
         VOLUMEID=$(echo ${JSON_PARAMS} | jq -r '.cinderVolumeID')
@@ -173,8 +263,7 @@ domountdevice() {
         FSTYPE=$(echo ${JSON_PARAMS} | jq -r '.["kubernetes.io/fsType"]')
         TYPE=$(echo ${JSON_PARAMS} | jq -r '.type')
 
-        logfile "FS type: " $FSTYPE
-        
+        logfile "FS type: " $FSTYPE        
         logfile "Mount path: " $MNTPATH 
         logfile "DMDEV: "  $DMDEV  
         logfile "FS type: " $FSTYPE 
@@ -212,7 +301,6 @@ domountdevice() {
         # put the flex volume information for virtlet flexvolume resource to consume
         #
         echo ${JSON_PARAMS} | jq --arg volpath ${DMDEV} '. + {path: $volpath}' > ${MNTPATH}/virtlet-flexvolume.json
-        # echo ${JSON_PARAMS} > ${MNTPATH}/virtlet-flexvolume.json
         if [ $? -ne 0 ]; then
                 err "{ \"status\": \"Failure\", \"message\": \"Failed to call mounter""}"
                 exit 1
@@ -265,7 +353,12 @@ ismounted() {
 op=$1
 
 if [ "$op" = "init" ]; then
-        logfile "Init start" 
+        logfile "Init start"
+        volumeMetadataFile=$(getVolumeFile)
+        if [ ! -f "${volumeMetadataFile}" ]; then
+                logfile "Initialze the volume metadata file"
+                echo "{\"volumes\": {}}" > ${volumeMetadataFile} 
+        fi
         log "{\"status\": \"Success\"}"
         exit 0
 fi
