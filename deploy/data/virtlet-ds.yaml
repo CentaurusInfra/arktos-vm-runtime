@@ -12,9 +12,9 @@ spec:
     metadata:
       annotations:
         # the apparmor related annotations will be replaced IF cluster is running under apparmor enabled env
-        container.apparmor.security.beta.kubernetes.io/libvirt: localhost/libvirtd
-        container.apparmor.security.beta.kubernetes.io/vms: localhost/vms
-        container.apparmor.security.beta.kubernetes.io/virtlet: localhost/virtlet
+        apparmorlibvirtname: apparmorlibvirtvalue
+        apparmorvmsname: apparmorvmsvalue
+        apparmorvirtletname: apparmorvirtletvalue
       name: virtlet
       labels:
         runtime: virtlet
