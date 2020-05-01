@@ -11,6 +11,13 @@ profile vms flags=(attach_disconnected) {
   /{usr/,}bin/cut rix,
   /{var/,}tmp/{,**} r,
 
+  /etc/resolv.conf rw,
+  /etc/bash.bashrc r,
+  /root/.bashrc r,
+  /etc/inputrc r,
+
+  /bin/bash ix,
+  /var/log/virtlet/** rw,
   /var/lib/virtlet/vms.procfile w,
   /vms.sh rix,
 

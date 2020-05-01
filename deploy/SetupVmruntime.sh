@@ -20,15 +20,25 @@
 # For now, it aligns with the virtlet-ds.yaml and used same set of scripts
 # to start the vms, libvirt and virtlet, as well as the node preparation
 # 
-# TODO: Consider add apparmor enable/disable functions here as well
 
 VMS_CONTAINER_NAME=vmruntime_vms
 LIBVIRT_CONTAINER_NAME=vmruntime_libvirt
 VIRTLET_CONTAINER_NAME=vmruntime_virtlet
 
+KUBE_FLEX_VOLUME_PLUGIN_DIR=${KUBE_FLEX_VOLUME_PLUGIN_DIR:-"/usr/libexec/kubernetes/kubelet-plugins/volume/exec"}
+OVERWRITE_DEPLOYMENT_FILES=${OVERWRITE_DEPLOYMENT_FILES:-"false"}
+APPARMOR_ENABLED=${APPARMOR_ENABLED:-"false"}
+APPARMOR_PROFILE_VIRTLET=virtlet
+APPARMOR_PROFILE_LIBVIRTD=libvirtd
+APPARMOR_PROFILE_LIBVIRT_QEMU=libvirt-qemu
+APPARMOR_PROFILE_VMS=vms
+
+VIRTLET_DEPLOYMENT_FILES_DIR=${VIRTLET_DEPLOYMENT_FILES_DIR:-"/tmp"}
+VIRTLET_DEPLOYMENT_FILES_SRC=${VIRTLET_DEPLOYMENT_FILES_SRC:-"https://raw.githubusercontent.com/futurewei-cloud/arktos-vm-runtime/release-0.5/deploy"}
+
 # Add more env as needed or support extra config with the optional command args
 VIRTLET_LOGLEVEL=${VIRTLET_LOGLEVEL:-"4"}
-VIRTLET_DISABLE_KVM=${VIRTLET_DISABLE_KVM:="y"}
+VIRTLET_DISABLE_KVM=${VIRTLET_DISABLE_KVM:-"y"}
 
 usage() {
 	echo "Invalid usage. Usage: "
@@ -38,15 +48,61 @@ usage() {
 
 cleanup() {
 	echo "Stop vm runtime docker containers"
-	docker kill ${VMS_CONTAINER_NAME}
-	docker kill ${LIBVIRT_CONTAINER_NAME}
-	docker kill ${VIRTLET_CONTAINER_NAME}
+	docker rm -f ${VMS_CONTAINER_NAME}
+	docker rm -f ${LIBVIRT_CONTAINER_NAME}
+	docker rm -f ${VIRTLET_CONTAINER_NAME}
 
 	echo "Delete vm runtime meta data files"
 	rm -f -r /var/lib/virtlet/
+	rm -f -r /var/log/virtlet/
+}
+
+downloadRuntimeDeploymentFiles() {
+	# Get runtime deployment files
+	echo "Getting runtime deployment files"
+	if [[ (${OVERWRITE_DEPLOYMENT_FILES} == "true") || (! -f ${VIRTLET_DEPLOYMENT_FILES_DIR}/${APPARMOR_PROFILE_LIBVIRT_QEMU}) ]]; then
+		wget -O ${VIRTLET_DEPLOYMENT_FILES_DIR}/${APPARMOR_PROFILE_LIBVIRT_QEMU}  ${VIRTLET_DEPLOYMENT_FILES_SRC}/apparmor/${APPARMOR_PROFILE_LIBVIRT_QEMU}
+	fi
+
+	if [[ (${OVERWRITE_DEPLOYMENT_FILES} == "true") || (! -f ${VIRTLET_DEPLOYMENT_FILES_DIR}/${APPARMOR_PROFILE_LIBVIRTD}) ]]; then
+		wget -O ${VIRTLET_DEPLOYMENT_FILES_DIR}/${APPARMOR_PROFILE_LIBVIRTD}  ${VIRTLET_DEPLOYMENT_FILES_SRC}/apparmor/${APPARMOR_PROFILE_LIBVIRTD}
+	fi
+
+	if [[ (${OVERWRITE_DEPLOYMENT_FILES} == "true") || (! -f ${VIRTLET_DEPLOYMENT_FILES_DIR}/${APPARMOR_PROFILE_VIRTLET}) ]]; then
+		wget -O ${VIRTLET_DEPLOYMENT_FILES_DIR}/${APPARMOR_PROFILE_VIRTLET}  ${VIRTLET_DEPLOYMENT_FILES_SRC}/apparmor/${APPARMOR_PROFILE_VIRTLET}
+	fi
+
+	if [[ (${OVERWRITE_DEPLOYMENT_FILES} == "true") || (! -f ${VIRTLET_DEPLOYMENT_FILES_DIR}/${APPARMOR_PROFILE_VMS}) ]]; then
+		wget -O ${VIRTLET_DEPLOYMENT_FILES_DIR}/${APPARMOR_PROFILE_VMS}  ${VIRTLET_DEPLOYMENT_FILES_SRC}/apparmor/${APPARMOR_PROFILE_VMS}
+	fi
+}
+
+enableApparmor() {
+	  echo "Config environment under apparmor enabled host"
+	  # Start AppArmor service before we have scripts to configure it properly
+	  if ! sudo systemctl is-active --quiet apparmor; then
+	    echo "Starting Apparmor service"
+	    sudo systemctl start apparmor
+	  fi
+
+	  # install runtime apparmor profiles and reload apparmor
+	  echo "Installing arktos runtime apparmor profiles"
+	  cp ${VIRTLET_DEPLOYMENT_FILES_DIR}/${APPARMOR_PROFILE_LIBVIRT_QEMU} /etc/apparmor.d/abstractions/
+	  sudo install -m 0644 ${VIRTLET_DEPLOYMENT_FILES_DIR}/${APPARMOR_PROFILE_LIBVIRTD} -t /etc/apparmor.d/
+	  sudo install -m 0644 ${VIRTLET_DEPLOYMENT_FILES_DIR}/${APPARMOR_PROFILE_VIRTLET} -t /etc/apparmor.d/ 
+	  sudo install -m 0644 ${VIRTLET_DEPLOYMENT_FILES_DIR}/${APPARMOR_PROFILE_VMS} -t /etc/apparmor.d/
+	  sudo apparmor_parser -r /etc/apparmor.d/${APPARMOR_PROFILE_LIBVIRTD}
+	  sudo apparmor_parser -r /etc/apparmor.d/${APPARMOR_PROFILE_VIRTLET}
+	  sudo apparmor_parser -r /etc/apparmor.d/${APPARMOR_PROFILE_VMS}
+	  echo "Completed"
 }
 
 startRuntime() {
+	if [[ "${APPARMOR_ENABLED}" == "true" ]]; then
+		downloadRuntimeDeploymentFiles
+		enableApparmor
+	fi
+
 	echo "Start vm runtime containers"
 	#virtlet container bind host directories
 	mkdir -p /var/lib/virtlet/vms
@@ -55,18 +111,30 @@ startRuntime() {
 	mkdir -p /var/run/netns
 	mkdir -p /var/lib/virtlet/volumes
 
-	docker run --rm --net=host --privileged --pid=host --uts=host --ipc=host --user=root \
+	if [ ! -f "${KUBE_FLEX_VOLUME_PLUGIN_DIR}" ]; then
+                mkdir -p "${KUBE_FLEX_VOLUME_PLUGIN_DIR}"
+	fi
+
+	DOCKER_RUN_CMD="docker run"
+
+	${DOCKER_RUN_CMD} --net=host --privileged --pid=host --uts=host --ipc=host --user=root \
 	--env VIRTLET_LOGLEVEL=${VIRTLET_LOGLEVEL} \
 	--env VIRTLET_DISABLE_KVM=${VIRTLET_DISABLE_KVM} \
 	--mount type=bind,src=/dev,dst=/dev \
 	--mount type=bind,src=/var/lib,dst=/host-var-lib \
 	--mount type=bind,src=/run,dst=/run \
-	--mount type=bind,src=/usr/libexec/kubernetes/kubelet-plugins/volume/exec,dst=/kubelet-volume-plugins \
+	--mount type=bind,src=${KUBE_FLEX_VOLUME_PLUGIN_DIR},dst=/kubelet-volume-plugins \
 	--mount type=bind,src=/var/lib/virtlet,dst=/var/lib/virtlet,bind-propagation=rshared \
 	--mount type=bind,src=/var/log,dst=/hostlog \
 	arktosstaging/vmruntime:latest /bin/bash -c "/prepare-node.sh > /hostlog/virtlet/prepare-node.log 2>&1 "
 
-	docker run --rm --net=host --privileged --pid=host --uts=host --ipc=host --user=root \
+	echo $(date -u +%Y-%m-%dT%H:%M:%SZ) "START VMS LOG FILE" > /var/log/virtlet/vms.log
+	DOCKER_RUN_CMD="docker run"
+	if [[ "${APPARMOR_ENABLED}" == "true" ]]; then
+                DOCKER_RUN_CMD="docker run --security-opt apparmor=${APPARMOR_PROFILE_VMS}"
+	fi
+
+	${DOCKER_RUN_CMD} --net=host --privileged --pid=host --uts=host --ipc=host --user=root \
 	--name ${VMS_CONTAINER_NAME} \
 	--mount type=bind,src=/dev,dst=/dev \
 	--mount type=bind,src=/lib/modules,dst=/lib/modules,readonly \
@@ -74,9 +142,15 @@ startRuntime() {
 	--mount type=bind,src=/var/lib/virtlet,dst=/var/lib/virtlet,bind-propagation=rshared \
 	--mount type=bind,src=/var/log/virtlet,dst=/var/log/virtlet \
 	--mount type=bind,src=/var/log/virtlet/vms,dst=/var/log/vms \
-	arktosstaging/vmruntime:latest /bin/bash -c "/vms.sh > /var/log/virtlet/vms.log 2>&1 " &
+	arktosstaging/vmruntime:latest /bin/bash -c "/vms.sh >> /var/log/virtlet/vms.log 2>&1 " &
 
-	docker run --rm --net=host --privileged --pid=host --uts=host --ipc=host --user=root \
+	echo $(date -u +%Y-%m-%dT%H:%M:%SZ) "START LIBVIRT LOG FILE" > /var/log/virtlet/libvirt.log
+	DOCKER_RUN_CMD="docker run"
+        if [[ "${APPARMOR_ENABLED}" == "true" ]]; then
+                DOCKER_RUN_CMD="docker run --security-opt apparmor=${APPARMOR_PROFILE_LIBVIRTD}"
+        fi
+	${DOCKER_RUN_CMD} --net=host --privileged --pid=host --uts=host --ipc=host --user=root \
+	--security-opt apparmor=${APPARMOR_PROFILE_LIBVIRTD} \
 	--name ${LIBVIRT_CONTAINER_NAME} \
 	--mount type=bind,src=/boot,dst=/boot,readonly \
 	--mount type=bind,src=/dev,dst=/dev \
@@ -91,9 +165,15 @@ startRuntime() {
 	--mount type=bind,src=/var/log/libvirt,dst=/var/log/libvirt \
 	--mount type=bind,src=/var/log/virtlet/vms,dst=/var/log/vms \
 	--mount type=bind,src=/var/run/libvirt,dst=/var/run/libvirt \
-	arktosstaging/vmruntime:latest /bin/bash -c "/libvirt.sh > /var/log/virtlet/libvirt.log 2>&1" &
+	arktosstaging/vmruntime:latest /bin/bash -c "/libvirt.sh >> /var/log/virtlet/libvirt.log 2>&1" &
 
-	docker run --rm --net=host --privileged --pid=host --uts=host --ipc=host --user=root \
+	echo $(date -u +%Y-%m-%dT%H:%M:%SZ) "START VIRTLET LOG FILE" > /var/log/virtlet/virtlet.log
+	DOCKER_RUN_CMD="docker run"
+        if [[ "${APPARMOR_ENABLED}" == "true" ]]; then
+                DOCKER_RUN_CMD="docker run --security-opt apparmor=${APPARMOR_PROFILE_VIRTLET}"
+        fi      
+	${DOCKER_RUN_CMD} --net=host --privileged --pid=host --uts=host --ipc=host --user=root \
+	--security-opt apparmor=${APPARMOR_PROFILE_VIRTLET} \
 	--name ${VIRTLET_CONTAINER_NAME} \
 	--env VIRTLET_LOGLEVEL=${VIRTLET_LOGLEVEL} \
         --env VIRTLET_DISABLE_KVM=${VIRTLET_DISABLE_KVM} \
@@ -106,7 +186,7 @@ startRuntime() {
 	--mount type=bind,src=/lib/modules,dst=/lib/modules,readonly \
 	--mount type=bind,src=/run,dst=/run \
 	--mount type=bind,src=/sys/fs/cgroup,dst=/sys/fs/cgroup \
-	--mount type=bind,src=/usr/libexec/kubernetes/kubelet-plugins/volume/exec,dst=/kubelet-volume-plugins \
+	--mount type=bind,src=${KUBE_FLEX_VOLUME_PLUGIN_DIR},dst=/kubelet-volume-plugins \
 	--mount type=bind,src=/var/lib/libvirt,dst=/var/lib/libvirt \
 	--mount type=bind,src=/var/lib/virtlet,dst=/var/lib/virtlet,bind-propagation=rshared \
 	--mount type=bind,src=/var/log,dst=/var/log \
@@ -114,7 +194,7 @@ startRuntime() {
 	--mount type=bind,src=/var/log/virtlet/vms,dst=/var/log/vms \
 	--mount type=bind,src=/var/run/libvirt,dst=/var/run/libvirt \
 	--mount type=bind,src=/var/run/netns,dst=/var/run/netns,bind-propagation=rshared \
-	arktosstaging/vmruntime:latest /bin/bash -c "/start.sh > /var/log/virtlet/virtlet.log 2>&1" &
+	arktosstaging/vmruntime:latest /bin/bash -c "/start.sh >> /var/log/virtlet/virtlet.log 2>&1" &
 }
 
 op=$1
