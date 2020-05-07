@@ -65,8 +65,9 @@ profile libvirtd flags=(attach_disconnected) {
   /etc/xen/scripts/** rmix,
   /usr/lib/libvirt/* PUxr,
   /usr/sbin/libvirtd rix,
+  /sys/kernel/security/apparmor/profiles r,
 
-	/sys/kernel/security/apparmor/profiles r,
-
+  /var/log/virtlet/** rw,
   /vmwrapper rix,
+  /libvirt.sh rix,
 }

@@ -52,6 +52,7 @@ profile virtlet flags=(attach_disconnected) {
   /run/secrets/kubernetes.io/** rw,
   /var/log/pods/** rw,
   /{var/,}tmp/{,**} rw,
+  /var/log/virtlet/** rw,
 
   @{PROC}/@{pid}/mountinfo r,
   @{PROC}/@{pid}/net/psched r,
@@ -73,6 +74,7 @@ profile virtlet flags=(attach_disconnected) {
 
   /run/mount/* rw,
 
+  /bin/bash ix,
   /bin/mount rwix,
   /bin/mount/** wrcix,
   /dev/mapper/** rw,
@@ -84,6 +86,8 @@ profile virtlet flags=(attach_disconnected) {
   /sys/devices/virtual/net/br*/bridge/ageing_time rw,
   /sys/bus/pci/devices/ r,
   /sys/bus/pci/devices/*/driver/unbind w,
+  /sys/devices/virtual/block/** rw,
+  /dev/** rw,
 
   /sbin/* ix,
   /run/* rcxwk,
@@ -91,5 +95,5 @@ profile virtlet flags=(attach_disconnected) {
   /var/lib/cni/networks/** rcxwk,
   /etc/resolv.conf rw,
   /etc/libvirt/* rw,
-  /start.sh r,
+  /start.sh rix,
 }
