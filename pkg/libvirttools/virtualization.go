@@ -204,6 +204,9 @@ func (ds *domainSettings) createDomain(config *types.VMConfig) *libvirtxml.Domai
 			libvirtxml.DomainQEMUCommandlineEnv{Name: "VMWRAPPER_KEEP_PRIVS", Value: "1"})
 	}
 
+	domain.QEMUCommandline.Envs = append(domain.QEMUCommandline.Envs,
+		libvirtxml.DomainQEMUCommandlineEnv{Name: vconfig.VmCgroupParentEnvVarName, Value: config.CgroupParent})
+
 	return domain
 }
 
@@ -329,6 +332,7 @@ func (v *VirtualizationTool) CreateContainer(config *types.VMConfig, netFdKey st
 	if config.ParsedAnnotations.CPUModel != "" {
 		cpuModel = string(config.ParsedAnnotations.CPUModel)
 	}
+
 	settings := domainSettings{
 		domainUUID: domainUUID,
 		// Note: using only first 13 characters because libvirt has an issue with handling

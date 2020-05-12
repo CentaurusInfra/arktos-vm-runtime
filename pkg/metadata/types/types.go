@@ -275,6 +275,8 @@ type VMConfig struct {
 	// Path relative to LogDirectory for container to store the
 	// log (STDOUT and STDERR) on the host.
 	LogPath string
+	// cgroup parent specified in the linuxPodsandboxconfig
+	CgroupParent string
 }
 
 // RootVolumeDevice returns the volume device that should be used for

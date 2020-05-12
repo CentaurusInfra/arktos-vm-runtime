@@ -175,6 +175,8 @@ func (v *VirtletRuntimeService) RunPodSandbox(ctx context.Context, in *kubeapi.R
 		return nil, err
 	}
 
+	glog.V(5).Infof("PodSandBoxInfo Pod cgroup parent: %v", psi.Config.CgroupParent)
+
 	sandbox = v.metadataStore.PodSandbox(config.Metadata.Uid)
 	if err := sandbox.Save(
 		func(c *types.PodSandboxInfo) (*types.PodSandboxInfo, error) {
@@ -326,6 +328,8 @@ func (v *VirtletRuntimeService) CreateContainer(ctx context.Context, in *kubeapi
 	if sandboxInfo.ContainerSideNetwork == nil || sandboxInfo.ContainerSideNetwork.Result == nil {
 		fdKey = ""
 	}
+
+	vmConfig.CgroupParent = sandboxInfo.Config.CgroupParent
 
 	uuid, err := v.virtTool.CreateContainer(vmConfig, fdKey)
 	if err != nil {

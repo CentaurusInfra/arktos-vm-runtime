@@ -18,7 +18,10 @@ package cgroups
 
 import (
 	"fmt"
+	"github.com/golang/glog"
 	"io"
+	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -148,4 +151,20 @@ func (c *Controller) Set(name string, value interface{}) error {
 		[]byte(utils.Stringify(value)),
 		0644,
 	)
+}
+
+// Check if a particular cgroup exists for a given controller
+func (c *Controller) CgroupExists(ctl string, cgPath string) bool {
+	fullPath := path.Join(cgroupfs, ctl, cgPath)
+	_, err := os.Stat(fullPath)
+
+	if os.IsNotExist(err) {
+		glog.V(5).Infof("Cgroup path %v does not exist", fullPath)
+		return false
+	}
+
+	// log err for investigation and return true
+	glog.V(5).Infof("Cgroup path check with error: %v", err)
+	return true
+
 }

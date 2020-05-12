@@ -27,4 +27,6 @@ const (
 	LogPathEnvVarName = "VIRTLET_CONTAINER_LOG_PATH"
 	// NetKeyEnvVarName contains name of env variable passed from virtlet to vmwrapper
 	NetKeyEnvVarName = "VIRTLET_NET_KEY"
+	// VmCgroupParentEnvVarName contains the VM cgroup parent path
+	VmCgroupParentEnvVarName = "CGROUP_PARENT"
 )

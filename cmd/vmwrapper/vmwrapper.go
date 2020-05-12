@@ -71,17 +71,34 @@ func main() {
 		}
 	}
 
-	// FIXME: move the pid of qemu instance out of kubelet-managed
-	// for cgroups that aren't managed by libvirt.
-	// If we don't do this, the VM pod will be killed by kubelet when Virtlet pod
-	// is removed dnd cgroup-per-qos is enabled in kubelet settings.
+	cgroupParent := os.Getenv(config.VmCgroupParentEnvVarName)
+	glog.V(5).Infof("Got VM CgroupParent: %s", cgroupParent)
+
 	cm := cgroups.NewManager(os.Getpid(), nil)
-	for _, ctl := range []string{"hugetlb", "systemd", "pids"} {
-		if _, err := cm.GetProcessController(ctl); err == nil {
-			err = cm.MoveProcess(ctl, "/")
-			if err != nil {
-				glog.Warningf("failed to move pid into cgroup %q path /: %v", ctl, err)
+
+	controllers, err := cm.GetProcessControllers()
+
+	if err != nil {
+		glog.Warningf("Failed to get cgroup controllers: %v", err)
+	} else {
+		for ctl, ctlPath := range controllers {
+			glog.V(5).Infof("Cgroup controller name %s, path %s", ctl, ctlPath)
+
+			cgPath := "/"
+			if controller, err := cm.GetProcessController(ctl); err == nil {
+				if controller.CgroupExists(ctl, cgroupParent) {
+					cgPath = cgroupParent
+				} else {
+					glog.Warningf("POD cgroupParent %s for controller %s does not exist", cgroupParent, ctl)
+				}
 			}
+
+			glog.V(5).Infof("Move process to path: %v", cgPath)
+			err = cm.MoveProcess(ctl, cgPath)
+			if err != nil {
+				glog.Warningf("Failed to move pid into cgroup %q path %s: %v", ctl, cgPath, err)
+			}
+
 		}
 	}
 

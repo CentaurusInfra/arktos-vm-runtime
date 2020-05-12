@@ -25,6 +25,7 @@ VMS_CONTAINER_NAME=vmruntime_vms
 LIBVIRT_CONTAINER_NAME=vmruntime_libvirt
 VIRTLET_CONTAINER_NAME=vmruntime_virtlet
 
+RUNTIME_IMAGE_VERSION=${RUNTIME_IMAGE_VERSION:-"latest"}
 KUBE_FLEX_VOLUME_PLUGIN_DIR=${KUBE_FLEX_VOLUME_PLUGIN_DIR:-"/usr/libexec/kubernetes/kubelet-plugins/volume/exec"}
 OVERWRITE_DEPLOYMENT_FILES=${OVERWRITE_DEPLOYMENT_FILES:-"false"}
 APPARMOR_ENABLED=${APPARMOR_ENABLED:-"false"}
@@ -126,7 +127,7 @@ startRuntime() {
 	--mount type=bind,src=${KUBE_FLEX_VOLUME_PLUGIN_DIR},dst=/kubelet-volume-plugins \
 	--mount type=bind,src=/var/lib/virtlet,dst=/var/lib/virtlet,bind-propagation=rshared \
 	--mount type=bind,src=/var/log,dst=/hostlog \
-	arktosstaging/vmruntime:latest /bin/bash -c "/prepare-node.sh > /hostlog/virtlet/prepare-node.log 2>&1 "
+	arktosstaging/vmruntime:${RUNTIME_IMAGE_VERSION} /bin/bash -c "/prepare-node.sh > /hostlog/virtlet/prepare-node.log 2>&1 "
 
 	echo $(date -u +%Y-%m-%dT%H:%M:%SZ) "START VMS LOG FILE" > /var/log/virtlet/vms.log
 	DOCKER_RUN_CMD="docker run"
@@ -142,7 +143,7 @@ startRuntime() {
 	--mount type=bind,src=/var/lib/virtlet,dst=/var/lib/virtlet,bind-propagation=rshared \
 	--mount type=bind,src=/var/log/virtlet,dst=/var/log/virtlet \
 	--mount type=bind,src=/var/log/virtlet/vms,dst=/var/log/vms \
-	arktosstaging/vmruntime:latest /bin/bash -c "/vms.sh >> /var/log/virtlet/vms.log 2>&1 " &
+	arktosstaging/vmruntime:${RUNTIME_IMAGE_VERSION} /bin/bash -c "/vms.sh >> /var/log/virtlet/vms.log 2>&1 " &
 
 	echo $(date -u +%Y-%m-%dT%H:%M:%SZ) "START LIBVIRT LOG FILE" > /var/log/virtlet/libvirt.log
 	DOCKER_RUN_CMD="docker run"
@@ -165,7 +166,7 @@ startRuntime() {
 	--mount type=bind,src=/var/log/libvirt,dst=/var/log/libvirt \
 	--mount type=bind,src=/var/log/virtlet/vms,dst=/var/log/vms \
 	--mount type=bind,src=/var/run/libvirt,dst=/var/run/libvirt \
-	arktosstaging/vmruntime:latest /bin/bash -c "/libvirt.sh >> /var/log/virtlet/libvirt.log 2>&1" &
+	arktosstaging/vmruntime:${RUNTIME_IMAGE_VERSION} /bin/bash -c "/libvirt.sh >> /var/log/virtlet/libvirt.log 2>&1" &
 
 	echo $(date -u +%Y-%m-%dT%H:%M:%SZ) "START VIRTLET LOG FILE" > /var/log/virtlet/virtlet.log
 	DOCKER_RUN_CMD="docker run"
@@ -194,7 +195,7 @@ startRuntime() {
 	--mount type=bind,src=/var/log/virtlet/vms,dst=/var/log/vms \
 	--mount type=bind,src=/var/run/libvirt,dst=/var/run/libvirt \
 	--mount type=bind,src=/var/run/netns,dst=/var/run/netns,bind-propagation=rshared \
-	arktosstaging/vmruntime:latest /bin/bash -c "/start.sh >> /var/log/virtlet/virtlet.log 2>&1" &
+	arktosstaging/vmruntime:${RUNTIME_IMAGE_VERSION} /bin/bash -c "/start.sh >> /var/log/virtlet/virtlet.log 2>&1" &
 }
 
 op=$1
