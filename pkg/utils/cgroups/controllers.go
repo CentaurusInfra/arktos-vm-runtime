@@ -18,7 +18,9 @@ package cgroups
 
 import (
 	"fmt"
+	"github.com/containerd/cgroups"
 	"github.com/golang/glog"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"io"
 	"os"
 	"path"
@@ -167,4 +169,21 @@ func (c *Controller) CgroupExists(ctl string, cgPath string) bool {
 	glog.V(5).Infof("Cgroup path check with error: %v", err)
 	return true
 
+}
+
+// function to create a new Cgroup
+func CreateChildCgroup(cgParent string, cgName string, res *specs.LinuxResources) (cgroups.Cgroup, error) {
+	parent, err := cgroups.Load(cgroups.V1, cgroups.StaticPath(cgParent))
+	if err != nil {
+		glog.Errorf("Failed to load parent cgroup %v. error %v", cgParent, err)
+		return nil, err
+	}
+
+	cg, err := parent.New(cgName, res)
+	if err != nil {
+		glog.Errorf("Failed to create the child cgroup %v. error %v", cgName, err)
+		return nil, err
+	}
+
+	return cg, nil
 }

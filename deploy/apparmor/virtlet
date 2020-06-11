@@ -89,6 +89,10 @@ profile virtlet flags=(attach_disconnected) {
   /sys/devices/virtual/block/** rw,
   /dev/** rw,
 
+  /sys/fs/cgroup/** rwcx,
+  /sys/kernel/** rw,
+  /sys/kernel/mm/hugepages/* rw,
+  /proc/** rw,
   /sbin/* ix,
   /run/* rcxwk,
   /proc/sys/net/** rwix,

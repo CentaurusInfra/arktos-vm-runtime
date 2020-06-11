@@ -402,6 +402,19 @@ function build_image_internal {
 function install_vendor_internal {
     if [ ! -d vendor ]; then
         glide install --strip-vendor
+
+        # handle a few cases
+        pushd /go/src/github.com/Mirantis/virtlet/vendor/github.com/coreos/
+        mkdir v22
+        cp -r ./go-systemd/* ./v22/
+        mv v22 ./go-systemd/
+        popd
+
+        pushd /go/src/github.com/Mirantis/virtlet/vendor/github.com/godbus/
+        mkdir v5
+        cp -r ./dbus/* ./v5/
+        mv v5 ./dbus/
+        popd
     fi
 }
 
