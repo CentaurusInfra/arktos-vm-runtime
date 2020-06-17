@@ -1,5 +1,5 @@
 hash: 570ae013eb3ccd8485245bc75a71526b9a31594d9663bb84d79886ee011f4f1c
-updated: 2018-09-03T12:51:13.004207457+03:00
+updated: 2020-06-17T23:28:48.585102907Z
 imports:
 - name: github.com/aykevl/osfs
   version: e4b1ff739ec92f420bca98d909fffb71fc68e29c
@@ -17,10 +17,6 @@ imports:
   - pkg/version
 - name: github.com/coreos/go-systemd
   version: 4484981625c1a6a2ecb40a390fcb6a9bcfee76e3
-- name: github.com/cpuguy83/go-md2man
-  version: 691ee98543af2f262f35fbb54bdd42f00b9b9cc5
-  subpackages:
-  - md2man
 - name: github.com/davecgh/go-spew
   version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
   subpackages:
@@ -105,7 +101,7 @@ imports:
   - protoc-gen-gogo/descriptor
   - sortkeys
 - name: github.com/golang/glog
-  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
+  version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - name: github.com/golang/groupcache
   version: 02826c3e79038b59d737d3b1c0a1d937f71a4433
   subpackages:
@@ -192,15 +188,11 @@ imports:
   subpackages:
   - difflib
 - name: github.com/renstrom/dedent
-  version: a1eba44eaecc89804e4b05ce2d17168eb353d524
+  version: 8478954c3bc893cf36c5ee7c822266b993a3b3ee
 - name: github.com/russross/blackfriday
   version: cadec560ec52d93835bf2f15bd794700d3a2473b
-- name: github.com/shurcooL/sanitized_anchor_name
-  version: 10ef21a441db47d8b13ebcc5fd2310f636973c77
 - name: github.com/spf13/cobra
   version: a1f051bc3eba734da4772d60e2d677f47cf93ef4
-  subpackages:
-  - doc
 - name: github.com/spf13/pflag
   version: 4c012f6dcd9546820e378d0bdda4d8fc772cdfea
 - name: github.com/vishvananda/netlink
@@ -210,7 +202,7 @@ imports:
 - name: github.com/vishvananda/netns
   version: 8ba1072b58e0c2a240eb5f6120165c7776c3e7b8
 - name: go.universe.tf/netboot
-  version: cc33920b4f3296801a64d731d269978116f40d92
+  version: bc90686a5279c9f5d712e61b0dfcca69da5f1642
   subpackages:
   - dhcp4
 - name: golang.org/x/crypto
@@ -243,7 +235,7 @@ imports:
   - trace
   - websocket
 - name: golang.org/x/sync
-  version: 1d60e4601c6fd243af51cc01ddf169918a5407ca
+  version: 43a5402ce75a95522677f77c619865d66b8c57ab
   subpackages:
   - syncmap
 - name: golang.org/x/sys
