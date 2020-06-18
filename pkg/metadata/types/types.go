@@ -162,6 +162,8 @@ type PodSandboxConfig struct {
 	Name string
 	// Pod UID of the sandbox.
 	Uid string
+	// Pod tenant of the sandbox.
+	Tenant string
 	// Pod namespace of the sandbox.
 	Namespace string
 	// Attempt number of creating the sandbox. Default: 0.
@@ -234,6 +236,8 @@ type VMConfig struct {
 	PodName string
 	// Namespace of the containing pod sandbox.
 	PodNamespace string
+	// Tenant of the containing pod sandbox.
+	PodTenant string
 	// Name of the container (VM).
 	Name string
 	// Image to use for the VM.

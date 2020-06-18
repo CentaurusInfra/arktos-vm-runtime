@@ -117,6 +117,7 @@ func (v *VirtletRuntimeService) RunPodSandbox(ctx context.Context, in *kubeapi.R
 	}
 	podID := config.Metadata.Uid
 	podNs := config.Metadata.Namespace
+	podTenant := config.Metadata.Tenant
 
 	// Check if sandbox already exists, it may happen when virtlet restarts and kubelet "thinks" that sandbox disappered
 	sandbox := v.metadataStore.PodSandbox(podID)
@@ -132,6 +133,7 @@ func (v *VirtletRuntimeService) RunPodSandbox(ctx context.Context, in *kubeapi.R
 	state := kubeapi.PodSandboxState_SANDBOX_READY
 	pnd := &tapmanager.PodNetworkDesc{
 		PodID:   podID,
+		PodTenant: podTenant,
 		PodNs:   podNs,
 		PodName: podName,
 		VPC:     config.Annotations["VPC"],

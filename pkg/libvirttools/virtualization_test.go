@@ -134,6 +134,7 @@ func (ct *containerTester) createContainer(sandbox *types.PodSandboxConfig, moun
 		PodSandboxID:         sandbox.Uid,
 		PodName:              sandbox.Name,
 		PodNamespace:         sandbox.Namespace,
+		PodTenant:            sandbox.Tenant,
 		Name:                 fakeContainerName,
 		Image:                fakeImageName,
 		Attempt:              fakeContainerAttempt,

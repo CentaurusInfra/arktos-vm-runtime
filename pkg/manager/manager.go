@@ -239,9 +239,10 @@ OUTER:
 			s.GetID(),
 			tapmanager.RecoverPayload{
 				Description: &tapmanager.PodNetworkDesc{
-					PodID:   s.GetID(),
-					PodNs:   psi.Config.Namespace,
-					PodName: psi.Config.Name,
+					PodID:     s.GetID(),
+					PodNs:     psi.Config.Namespace,
+					PodName:   psi.Config.Name,
+					PodTenant: psi.Config.Tenant,
 				},
 				ContainerSideNetwork:  psi.ContainerSideNetwork,
 				HaveRunningContainers: haveRunningContainers,
