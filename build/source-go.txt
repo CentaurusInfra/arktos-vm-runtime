@@ -1,0 +1,8 @@
+## please update this source info whenever new cri-api content is used 
+source files:
+  staging/src/k8s.io/cri-api/pkg/apis/runtime/v1alpha2/api.pb.go
+  staging/src/k8s.io/cri-api/pkg/apis/runtime/v1alpha2/constants.go
+repo:
+  https://github.com/futurewei-cloud/arktos
+commit: 
+  b3f464e0
