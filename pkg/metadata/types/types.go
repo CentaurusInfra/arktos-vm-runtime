@@ -185,6 +185,8 @@ type PodSandboxConfig struct {
 	Annotations map[string]string
 	// Optional configurations specific to Linux hosts.
 	CgroupParent string
+	// CNIArgs specifies cni args of the pod
+	CNIArgs string
 }
 
 // VMKeyValue denotes a key-value pair.

@@ -243,6 +243,7 @@ OUTER:
 					PodNs:     psi.Config.Namespace,
 					PodName:   psi.Config.Name,
 					PodTenant: psi.Config.Tenant,
+					CNIArgs:   psi.Config.CNIArgs,
 				},
 				ContainerSideNetwork:  psi.ContainerSideNetwork,
 				HaveRunningContainers: haveRunningContainers,

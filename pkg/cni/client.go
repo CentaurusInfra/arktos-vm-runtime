@@ -18,7 +18,9 @@ limitations under the License.
 package cni
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/containernetworking/cni/libcni"
 	cnicurrent "github.com/containernetworking/cni/pkg/types/current"
@@ -32,9 +34,9 @@ import (
 // Client provides an interface to CNI plugins.
 type Client interface {
 	// AddSandboxToNetwork adds a pod sandbox to the CNI network.
-	AddSandboxToNetwork(podID, podName, podNs, podTenant, vpc, nics string) (*cnicurrent.Result, error)
+	AddSandboxToNetwork(podID, podName, podNs, podTenant, vpc, nics, cniArgs string) (*cnicurrent.Result, error)
 	// RemoveSandboxFromNetwork removes a pod sandbox from the CNI network.
-	RemoveSandboxFromNetwork(podID, podName, podNs, podTenant, vpc, nics string) error
+	RemoveSandboxFromNetwork(podID, podName, podNs, podTenant, vpc, nics, cniArgs string) error
 	// GetDummyNetwork creates a dummy network using CNI plugin.
 	// It's used for making a dummy gateway for Calico CNI plugin.
 	// It returns a CNI result and a path to the network namespace.
@@ -68,7 +70,7 @@ func (c *client) GetDummyNetwork() (*cnicurrent.Result, string, error) {
 	if err := CreateNetNS(podID); err != nil {
 		return nil, "", fmt.Errorf("couldn't create netns for fake pod %q: %v", podID, err)
 	}
-	r, err := c.AddSandboxToNetwork(podID, "", "", "", "", "")
+	r, err := c.AddSandboxToNetwork(podID, "", "", "", "", "", "")
 	if err != nil {
 		return nil, "", fmt.Errorf("couldn't set up CNI for fake pod %q: %v", podID, err)
 	}
@@ -76,7 +78,7 @@ func (c *client) GetDummyNetwork() (*cnicurrent.Result, string, error) {
 }
 
 // AddSandboxToNetwork implements AddSandboxToNetwork method of Client interface.
-func (c *client) AddSandboxToNetwork(podID, podName, podNs, podTenant, vpc, nics string) (*cnicurrent.Result, error) {
+func (c *client) AddSandboxToNetwork(podID, podName, podNs, podTenant, vpc, nics, cniArgs string) (*cnicurrent.Result, error) {
 	var r cnicurrent.Result
 	if err := nsfix.NewCall("cniAddSandboxToNetwork").
 		Arg(cniRequest{
@@ -88,6 +90,7 @@ func (c *client) AddSandboxToNetwork(podID, podName, podNs, podTenant, vpc, nics
 			PodTenant:  podTenant,
 			VPC:        vpc,
 			NICs:       nics,
+			CNIArgs:    cniArgs,
 		}).
 		SpawnInNamespaces(&r); err != nil {
 		return nil, err
@@ -96,7 +99,7 @@ func (c *client) AddSandboxToNetwork(podID, podName, podNs, podTenant, vpc, nics
 }
 
 // RemoveSandboxFromNetwork implements RemoveSandboxFromNetwork method of Client interface.
-func (c *client) RemoveSandboxFromNetwork(podID, podName, podNs, podTenant, vpc, nics string) error {
+func (c *client) RemoveSandboxFromNetwork(podID, podName, podNs, podTenant, vpc, nics, cniArgs string) error {
 	return nsfix.NewCall("cniRemoveSandboxFromNetwork").
 		Arg(cniRequest{
 			PluginsDir: c.pluginsDir,
@@ -107,6 +110,7 @@ func (c *client) RemoveSandboxFromNetwork(podID, podName, podNs, podTenant, vpc,
 			PodTenant:  podTenant,
 			VPC:        vpc,
 			NICs:       nics,
+			CNIArgs:    cniArgs,
 		}).
 		SpawnInNamespaces(nil)
 }
@@ -120,6 +124,7 @@ type cniRequest struct {
 	PodTenant  string
 	VPC        string
 	NICs       string
+	CNIArgs    string
 }
 
 type realClient struct {
@@ -140,7 +145,7 @@ func newRealclient(pluginsDir, configsDir string) (*realClient, error) {
 	}, nil
 }
 
-func (c *realClient) cniRuntimeConf(podID, podName, podNs, podTenant, vpc, nics string) *libcni.RuntimeConf {
+func (c *realClient) cniRuntimeConf(podID, podName, podNs, podTenant, vpc, nics, cniArgs string) *libcni.RuntimeConf {
 	r := &libcni.RuntimeConf{
 		ContainerID: podID,
 		NetNS:       PodNetNSPath(podID),
@@ -156,8 +161,45 @@ func (c *realClient) cniRuntimeConf(podID, podName, podNs, podTenant, vpc, nics 
 			{"VPC", vpc},
 			{"NICs", nics},
 		}
+
+		if kvs, err := toCNIArgs(cniArgs); err == nil {
+			for k, v := range kvs {
+				r.Args = append(r.Args, [2]string{k, v})
+			}
+		}
 	}
 	return r
+}
+
+// toCNIArgs converts annotation value to extra CNI labels.
+// input is semicolon-separated key-value pairs, like "FOO=BAR;ABC=123"
+func toCNIArgs(cniArgs string) (map[string]string, error) {
+	if strings.ContainsAny(cniArgs, `"'`) {
+		return nil, errors.New("invalid quote char")
+	}
+
+	result := map[string]string{}
+	kvs := strings.Split(cniArgs, ";")
+	for _, s := range kvs {
+		kv := strings.SplitN(strings.TrimSpace(s), "=", 2)
+
+		k := strings.TrimSpace(kv[0])
+		if len(k) == 0 {
+			if len(kv) == 2 {
+				return nil, fmt.Errorf("missing key in string %q", s)
+			}
+			continue
+		}
+
+		if len(kv) != 2 {
+			return nil, fmt.Errorf("missing '=' char in %q", s)
+		}
+
+		v := strings.TrimSpace(kv[1])
+		result[k] = v
+	}
+
+	return result, nil
 }
 
 func handleAddSandboxToNetwork(arg interface{}) (interface{}, error) {
@@ -167,7 +209,7 @@ func handleAddSandboxToNetwork(arg interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	rtConf := c.cniRuntimeConf(req.PodID, req.PodName, req.PodNs, req.PodTenant, req.VPC, req.NICs)
+	rtConf := c.cniRuntimeConf(req.PodID, req.PodName, req.PodNs, req.PodTenant, req.VPC, req.NICs, req.CNIArgs)
 	// NOTE: this annotation is only need by CNI Genie
 	rtConf.Args = append(rtConf.Args, [2]string{
 		"K8S_ANNOT", `{"cni": "calico"}`,
@@ -200,7 +242,7 @@ func handleRemoveSandboxFromNetwork(arg interface{}) (interface{}, error) {
 
 	glog.V(3).Infof("RemoveSandboxFromNetwork: PodID %q, PodName %q, PodNs %q, podTenant %q, VPC %q, NICs %q",
 		req.PodID, req.PodName, req.PodNs, req.PodTenant, req.VPC, req.NICs)
-	err = c.cniConfig.DelNetworkList(c.netConfigList, c.cniRuntimeConf(req.PodID, req.PodName, req.PodNs, req.PodTenant, req.VPC, req.NICs))
+	err = c.cniConfig.DelNetworkList(c.netConfigList, c.cniRuntimeConf(req.PodID, req.PodName, req.PodNs, req.PodTenant, req.VPC, req.NICs, req.CNIArgs))
 	if err == nil {
 		glog.V(3).Infof("RemoveSandboxFromNetwork: PodID %q, PodName %q, PodNs %q, PodTenant %q, VPC %q, NICs %q: success",
 			req.PodID, req.PodName, req.PodNs, req.PodTenant, req.VPC, req.NICs)
