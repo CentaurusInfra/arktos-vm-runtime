@@ -33,6 +33,7 @@ func podSandboxMetadata(in *types.PodSandboxInfo) *kubeapi.PodSandboxMetadata {
 		Uid:       in.PodID,
 		Namespace: in.Config.Namespace,
 		Attempt:   in.Config.Attempt,
+		Tenant:    in.Config.Tenant,	//tenant is added for multi-tenancy networking support
 	}
 }
 
@@ -82,6 +83,7 @@ func CRIPodSandboxConfigToPodSandboxConfig(in *kubeapi.PodSandboxConfig) *types.
 		Name:         meta.GetName(),
 		Uid:          meta.GetUid(),
 		Namespace:    meta.GetNamespace(),
+		Tenant:       meta.GetTenant(),
 		Attempt:      meta.GetAttempt(),
 		Hostname:     in.GetHostname(),
 		LogDirectory: in.GetLogDirectory(),
@@ -134,6 +136,7 @@ func GetVMConfig(in *kubeapi.CreateContainerRequest, csn *network.ContainerSideN
 		PodSandboxID:         in.PodSandboxId,
 		PodName:              in.SandboxConfig.Metadata.Name,
 		PodNamespace:         in.SandboxConfig.Metadata.Namespace,
+		PodTenant:            in.SandboxConfig.Metadata.Tenant,
 		Name:                 in.Config.Metadata.Name,
 		Image:                in.Config.Image.Image,
 		Attempt:              in.Config.Metadata.Attempt,

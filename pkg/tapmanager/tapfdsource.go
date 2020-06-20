@@ -58,6 +58,8 @@ type InterfaceDescription struct {
 type PodNetworkDesc struct {
 	// PodID specifies the id of the pod
 	PodID string `json:"podId"`
+	// PodTenant specifies the tenant of the pod
+	PodTenant string `json:"podTenant"`
 	// PodNs specifies the namespace of the pod
 	PodNs string `json:"podNs"`
 	// PodName specifies the name of the pod
@@ -68,6 +70,8 @@ type PodNetworkDesc struct {
 	VPC string `json:"vpc"`
 	// NICs specifies the network interfaces of the pod
 	NICs string `json:"nics"`
+	// CNIArgs specifies cni args of the pod
+	CNIArgs string `json:"cni-args"`
 }
 
 // GetFDPayload contains the data that are required by TapFDSource
@@ -154,7 +158,7 @@ func (s *TapFDSource) GetFDs(key string, data []byte) ([]int, []byte, error) {
 	defer func() {
 		if gotError {
 			if podAddedToNetwork {
-				if err := s.cniClient.RemoveSandboxFromNetwork(pnd.PodID, pnd.PodName, pnd.PodNs, pnd.VPC, pnd.NICs); err != nil {
+				if err := s.cniClient.RemoveSandboxFromNetwork(pnd.PodID, pnd.PodName, pnd.PodNs, pnd.PodTenant, pnd.VPC, pnd.NICs, pnd.CNIArgs); err != nil {
 					glog.Errorf("Error removing a pod from the pod network after failed network setup: %v", err)
 				}
 			}
@@ -164,7 +168,7 @@ func (s *TapFDSource) GetFDs(key string, data []byte) ([]int, []byte, error) {
 		}
 	}()
 
-	netConfig, err := s.cniClient.AddSandboxToNetwork(pnd.PodID, pnd.PodName, pnd.PodNs, pnd.VPC, pnd.NICs)
+	netConfig, err := s.cniClient.AddSandboxToNetwork(pnd.PodID, pnd.PodName, pnd.PodNs, pnd.PodTenant, pnd.VPC, pnd.NICs, pnd.CNIArgs)
 	if err != nil {
 		gotError = true
 		return nil, nil, fmt.Errorf("error adding pod %s (%s) to CNI network: %v", pnd.PodName, pnd.PodID, err)
@@ -257,7 +261,7 @@ func (s *TapFDSource) Release(key string) error {
 		return err
 	}
 
-	if err := s.cniClient.RemoveSandboxFromNetwork(pn.pnd.PodID, pn.pnd.PodName, pn.pnd.PodNs, pn.pnd.VPC, pn.pnd.NICs); err != nil {
+	if err := s.cniClient.RemoveSandboxFromNetwork(pn.pnd.PodID, pn.pnd.PodName, pn.pnd.PodNs, pn.pnd.PodTenant, pn.pnd.VPC, pn.pnd.NICs, pn.pnd.CNIArgs); err != nil {
 		return fmt.Errorf("error removing pod sandbox %q from CNI network: %v", pn.pnd.PodID, err)
 	}
 

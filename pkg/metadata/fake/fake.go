@@ -54,6 +54,7 @@ func GetSandboxes(sandboxCount int) []*types.PodSandboxConfig {
 			Name:         name,
 			Uid:          utils.NewUUID5(samplePodNsUUID, name),
 			Namespace:    "default",
+			Tenant:       "fake-tenant",
 			Attempt:      uint32(0),
 			Hostname:     "localhost",
 			LogDirectory: "/var/log/test_log_directory",
