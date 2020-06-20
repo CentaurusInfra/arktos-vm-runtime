@@ -33,7 +33,7 @@ func podSandboxMetadata(in *types.PodSandboxInfo) *kubeapi.PodSandboxMetadata {
 		Uid:       in.PodID,
 		Namespace: in.Config.Namespace,
 		Attempt:   in.Config.Attempt,
-		Tenant:    in.Config.Tenant,
+		Tenant:    in.Config.Tenant,	//tenant is added for multi-tenancy networking support
 	}
 }
 
