@@ -1,0 +1,41 @@
+# -*- mode: yaml -*-
+
+version: 2
+jobs:
+  test-1.11:
+    working_directory: /go/src/go.universe.tf/netboot
+    docker:
+      - image: circleci/golang:1.11
+    steps:
+      - checkout
+      - run: make ci-prepare
+      - run: make build
+      - run: make test
+      - run: make lint
+  deploy:
+    working_directory: /go/src/go.universe.tf/netboot
+    docker:
+      - image: circleci/golang:1.11
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: echo $CIRCLE_BRANCH
+      - run: docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+      - run: make ci-prepare
+      - run: make ci-push-images TAG=${CIRCLE_BRANCH:-${CIRCLE_TAG}}
+workflows:
+  version: 2
+  test-and-deploy:
+    jobs:
+      - test-1.11:
+          filters:
+            tags:
+              only: /.*/
+      - deploy:
+          filters:
+            branches:
+              ignore: /pull\/.*/
+            tags:
+              only: /.*/
+          requires:
+            - test-1.11

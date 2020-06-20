@@ -1,0 +1,21 @@
+digraph G {
+    Start [shape=doubleoctagon];
+    ProxyDHCP [label="Offer ProxyDHCP"];
+    PXE [label="Send PXE boot config"];
+    TFTP [label=< Send iPXE<br/>(TFTP) >];
+    ProxyDHCP_Ipxe [label=< Offer ProxyDHCP<br/>(to iPXE) >];
+    HTTP_Ipxe_Script [label=< Send iPXE boot script<br/>(HTTP) >];
+    HTTP_Kernel [label=< Send kernel<br/>(HTTP) >];
+    HTTP_Initrd [label=< Send initrd(s)<br/>(HTTP) >];
+    Booted [shape=doubleoctagon];
+
+    Start -> ProxyDHCP [label=< <i>DHCP request</i> >, fontsize=11];
+    ProxyDHCP -> PXE [label=< <i>PXE request</i><br/><i>(UEFI only)</i> >, fontsize=11];
+    ProxyDHCP -> TFTP [label=< <i>TFTP request</i><br/><i>(BIOS only)</i> >, fontsize=11];
+    PXE -> TFTP [label=< <i>TFTP request</i> >, fontsize=11];
+    TFTP -> ProxyDHCP_Ipxe [label=< <i>DHCP request</i><br/><i>(from iPXE)</i> >, fontsize=11];
+    ProxyDHCP_Ipxe -> HTTP_Ipxe_Script [label=< <i>Request boot script</i> >, fontsize=11];
+    HTTP_Ipxe_Script -> HTTP_Kernel [label=< <i>Request kernel</i> >, fontsize=11];
+    HTTP_Kernel -> HTTP_Initrd [label=< <i>Request initrd(s)</i> >, fontsize=11];
+    HTTP_Initrd -> Booted;
+}
