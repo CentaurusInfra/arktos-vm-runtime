@@ -1,7 +1,5 @@
 package: github.com/Mirantis/virtlet
 import:
-- package: github.com/coreos/go-systemd
-  version: 4484981625c1a6a2ecb40a390fcb6a9bcfee76e3
 - package: github.com/golang/glog
 - package: golang.org/x/net
   version: 0ed95abb35c445290478a5348a7b38bb154135fd
@@ -47,7 +45,7 @@ import:
 - package: github.com/spf13/cobra
   version: a1f051bc3eba734da4772d60e2d677f47cf93ef4
 - package: github.com/golang/protobuf
-  version: 4bd1920723d7b7c925de087aa32e2187708897f7
+  version: v1.3.1
 - package: github.com/renstrom/dedent
   version: ^1.0.0
 - package: github.com/russross/blackfriday
@@ -86,3 +84,17 @@ import:
   version: e4b1ff739ec92f420bca98d909fffb71fc68e29c
 - package: github.com/kballard/go-shellquote
   version: 95032a82bc518f77982ea72343cc1ade730072f0
+- package: github.com/opencontainers/runtime-spec
+  version: 8e2f17c5a40b7649c3a9bf262e7723ad85929761
+- package: github.com/containerd/cgroups
+  version: 350791b421edcf85ccb9fbc68487c1a22d788c6f
+- package: github.com/coreos/go-systemd
+  version: v22.0.0
+- package: github.com/godbus/dbus
+  version: v5.0.0
+- package: github.com/gogo/protobuf
+  version: v1.3.1
+  subpackages:
+  - proto
+  - gogoproto
+                    

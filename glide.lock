@@ -1,6 +1,12 @@
 hash: 570ae013eb3ccd8485245bc75a71526b9a31594d9663bb84d79886ee011f4f1c
 updated: 2020-06-17T23:28:48.585102907Z
 imports:
+- name: github.com/opencontainers/runtime-spec
+  version: 8e2f17c5a40b7649c3a9bf262e7723ad85929761
+- name: github.com/containerd/cgroups
+  version: 350791b421edcf85ccb9fbc68487c1a22d788c6f
+- name: github.com/godbus/dbus
+  version: 66d97aec3384421e393c2a76b770a1b5c31d07a8
 - name: github.com/aykevl/osfs
   version: e4b1ff739ec92f420bca98d909fffb71fc68e29c
 - name: github.com/boltdb/bolt
@@ -16,7 +22,7 @@ imports:
   - pkg/types/current
   - pkg/version
 - name: github.com/coreos/go-systemd
-  version: 4484981625c1a6a2ecb40a390fcb6a9bcfee76e3
+  version: 2d78030078ef61b3cae27f42ad6d0e46db51b339
 - name: github.com/davecgh/go-spew
   version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
   subpackages:
@@ -94,7 +100,7 @@ imports:
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/gogo/protobuf
-  version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
+  version: 5628607bb4c51c3157aacc3a50f0ab707582b805
   subpackages:
   - gogoproto
   - proto

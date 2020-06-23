@@ -19,6 +19,9 @@ package libvirttools
 
 import (
 	"fmt"
+	"github.com/Mirantis/virtlet/pkg/utils/cgroups"
+	"github.com/opencontainers/runtime-spec/specs-go"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -39,12 +42,14 @@ import (
 )
 
 const (
-	defaultMemory     = 1024
-	defaultMemoryUnit = "MiB"
-	defaultDomainType = "kvm"
-	defaultEmulator   = "/usr/bin/kvm"
-	noKvmDomainType   = "qemu"
-	noKvmEmulator     = "/usr/bin/qemu-system-x86_64"
+	// default unit in the domain is Kib
+	defaultLibvirtDomainMemoryUnitValue = 1024
+	defaultMemory                       = 1024
+	defaultMemoryUnit                   = "MiB"
+	defaultDomainType                   = "kvm"
+	defaultEmulator                     = "/usr/bin/kvm"
+	noKvmDomainType                     = "qemu"
+	noKvmEmulator                       = "/usr/bin/qemu-system-x86_64"
 
 	domainStartCheckInterval      = 250 * time.Millisecond
 	domainStartTimeout            = 10 * time.Second
@@ -205,7 +210,7 @@ func (ds *domainSettings) createDomain(config *types.VMConfig) *libvirtxml.Domai
 	}
 
 	domain.QEMUCommandline.Envs = append(domain.QEMUCommandline.Envs,
-		libvirtxml.DomainQEMUCommandlineEnv{Name: vconfig.VmCgroupParentEnvVarName, Value: config.CgroupParent})
+		libvirtxml.DomainQEMUCommandlineEnv{Name: vconfig.VmCgroupParentEnvVarName, Value: path.Join(config.CgroupParent, domain.UUID)})
 
 	return domain
 }
@@ -431,7 +436,39 @@ func (v *VirtualizationTool) startContainer(containerID string) error {
 		return fmt.Errorf("domain %q: bad state %v upon StartContainer()", containerID, state)
 	}
 
+	info, err := v.ContainerInfo(containerID)
+	if err != nil {
+		glog.Errorf("failed to get containerInfo for container: %v", containerID)
+		return err
+	}
+
+	// create the cgroup for the qemu process
+	domainxml, err := domain.XML()
+	if err != nil {
+		glog.Errorf("failed to get domain xml")
+		return err
+	}
+
+	vcpus := int64(domainxml.VCPU.Value)
+	cpuShares := uint64(domainxml.CPUTune.Shares.Value)
+	cpuQuota := vcpus * domainxml.CPUTune.Quota.Value
+	// since the domain creation is controlled within the class, just use the default
+	// otherwise a switch is needed to convert the value to bytes
+	memLimit := int64(domainxml.Memory.Value * defaultLibvirtDomainMemoryUnitValue)
+
+	//TODO: hugepage setting and match with k8s pod cg property settings, after hugepage is supported in VM type
+	cg, err := cgroups.CreateChildCgroup(info.Config.CgroupParent, domainxml.UUID, &specs.LinuxResources{
+		Memory: &specs.LinuxMemory{Limit: &memLimit},
+		CPU:    &specs.LinuxCPU{Shares: &cpuShares, Quota: &cpuQuota},
+	})
+
+	if err != nil {
+		glog.Errorf("failed to create cgroup for domain %v", domainxml.Name)
+		return err
+	}
+
 	if err = domain.Create(); err != nil {
+		cg.Delete()
 		return fmt.Errorf("failed to create domain %q: %v", containerID, err)
 	}
 
