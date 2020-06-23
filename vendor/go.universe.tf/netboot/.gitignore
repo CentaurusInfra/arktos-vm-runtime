@@ -1,0 +1,7 @@
+cmd/pixiecore-apache2/pixiecore-apache2
+cmd/pixiecore/pixiecore
+dhcp4/dhcp4.test
+pcap/pcap.test
+pixiecore/pixiecore.test
+vendor/
+build/
