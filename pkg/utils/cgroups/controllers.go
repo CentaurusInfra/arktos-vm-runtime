@@ -171,7 +171,7 @@ func (c *Controller) CgroupExists(ctl string, cgPath string) bool {
 
 }
 
-// function to create a new Cgroup
+// Create a new CGroup with desired resource settings
 func CreateChildCgroup(cgParent string, cgName string, res *specs.LinuxResources) (cgroups.Cgroup, error) {
 	parent, err := cgroups.Load(cgroups.V1, cgroups.StaticPath(cgParent))
 	if err != nil {
@@ -186,4 +186,22 @@ func CreateChildCgroup(cgParent string, cgName string, res *specs.LinuxResources
 	}
 
 	return cg, nil
+}
+
+// Update a CGroup with desired resource settings
+func UpdateVmCgroup(cgPath string, res *specs.LinuxResources) error {
+	glog.V(4).Infof("Update VM Cgroup: %v, with resource %v", cgPath, res)
+	cg, err := cgroups.Load(cgroups.V1, cgroups.StaticPath(cgPath))
+	if err != nil {
+		glog.Errorf("Failed to load cgroup %v. error %v", cgPath, err)
+		return err
+	}
+
+	err = cg.Update(res)
+	if err != nil {
+		glog.Errorf("Failed to update cgroup %v. error %v", cgPath, err)
+		return err
+	}
+
+	return nil
 }

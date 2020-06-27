@@ -271,6 +271,16 @@ func (domain *libvirtDomain) RestoreToSnapshot(snapshotID string) error {
 	return snapshot.RevertToSnapshot(0)
 }
 
+// Update domain vcpu
+func (domain *libvirtDomain) SetVcpus(vcpus uint) error {
+	return domain.d.SetVcpusFlags(vcpus, libvirt.DOMAIN_VCPU_CONFIG|libvirt.DOMAIN_VCPU_LIVE)
+}
+
+// Update domain current memory
+func (domain *libvirtDomain) SetCurrentMemory(memInKib uint64) error {
+	return domain.d.SetMemoryFlags(memInKib, libvirt.DOMAIN_MEM_CONFIG|libvirt.DOMAIN_MEM_LIVE)
+}
+
 type libvirtSecret struct {
 	s *libvirt.Secret
 }

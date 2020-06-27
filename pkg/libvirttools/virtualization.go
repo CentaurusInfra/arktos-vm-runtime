@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"github.com/Mirantis/virtlet/pkg/utils/cgroups"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	kubeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -42,10 +44,15 @@ import (
 )
 
 const (
+	KiValue = 1024
+	//MiValue = 1048576
+	//GiValue = 1073741824
 	// default unit in the domain is Kib
-	defaultLibvirtDomainMemoryUnitValue = 1024
-	defaultMemory                       = 1024
-	defaultMemoryUnit                   = "MiB"
+	defaultLibvirtDomainMemoryUnitValue = KiValue
+
+	// default to 1Gi
+	defaultMemory                       = 1048576
+	defaultMemoryUnit                   = "KiB"
 	defaultDomainType                   = "kvm"
 	defaultEmulator                     = "/usr/bin/kvm"
 	noKvmDomainType                     = "qemu"
@@ -129,10 +136,15 @@ func (ds *domainSettings) createDomain(config *types.VMConfig) *libvirtxml.Domai
 
 		Type: domainType,
 
-		Name:   ds.domainName,
-		UUID:   ds.domainUUID,
-		Memory: &libvirtxml.DomainMemory{Value: uint(ds.memory), Unit: ds.memoryUnit},
-		VCPU:   &libvirtxml.DomainVCPU{Value: ds.vcpuNum},
+		Name:          ds.domainName,
+		UUID:          ds.domainUUID,
+		Memory:        &libvirtxml.DomainMemory{Value: uint(ds.memory), Unit: defaultMemoryUnit},
+		CurrentMemory: &libvirtxml.DomainCurrentMemory{Value: uint(ds.memory), Unit: defaultMemoryUnit},
+		// TODO: set max memory and CPU to host allocatable, it is controlled by the CG anyways
+		// Arktos-vm-runtime issue 39
+		// MaximumMemory: &libvirtxml.DomainMaxMemory{Value: uint(ds.memory * 2), Unit: defaultMemoryUnit, Slots: 16},
+		VCPU: &libvirtxml.DomainVCPU{Current: strconv.Itoa(ds.vcpuNum), Value: 2 * ds.vcpuNum},
+
 		CPUTune: &libvirtxml.DomainCPUTune{
 			Shares: &libvirtxml.DomainCPUTuneShares{Value: ds.cpuShares},
 			Period: &libvirtxml.DomainCPUTunePeriod{Value: ds.cpuPeriod},
@@ -345,7 +357,8 @@ func (v *VirtualizationTool) CreateContainer(config *types.VMConfig, netFdKey st
 		domainName:  "virtlet-" + domainUUID[:13] + "-" + config.Name,
 		netFdKey:    netFdKey,
 		vcpuNum:     config.ParsedAnnotations.VCPUCount,
-		memory:      int(config.MemoryLimitInBytes),
+		memory:      int(config.MemoryLimitInBytes/KiValue),
+		memoryUnit:  defaultMemoryUnit,
 		cpuShares:   uint(config.CPUShares),
 		cpuPeriod:   uint64(config.CPUPeriod),
 		enableSriov: v.config.EnableSriov,
@@ -354,7 +367,6 @@ func (v *VirtualizationTool) CreateContainer(config *types.VMConfig, netFdKey st
 		// threads consumption by the value from the pod definition
 		// we need to perform this division
 		cpuQuota:   config.CPUQuota / int64(config.ParsedAnnotations.VCPUCount),
-		memoryUnit: "b",
 		useKvm:     !v.config.DisableKVM,
 		cpuModel:   cpuModel,
 		systemUUID: config.ParsedAnnotations.SystemUUID,
@@ -443,27 +455,15 @@ func (v *VirtualizationTool) startContainer(containerID string) error {
 	}
 
 	// create the cgroup for the qemu process
-	domainxml, err := domain.XML()
-	if err != nil {
-		glog.Errorf("failed to get domain xml")
-		return err
-	}
-
-	vcpus := int64(domainxml.VCPU.Value)
-	cpuShares := uint64(domainxml.CPUTune.Shares.Value)
-	cpuQuota := vcpus * domainxml.CPUTune.Quota.Value
-	// since the domain creation is controlled within the class, just use the default
-	// otherwise a switch is needed to convert the value to bytes
-	memLimit := int64(domainxml.Memory.Value * defaultLibvirtDomainMemoryUnitValue)
-
 	//TODO: hugepage setting and match with k8s pod cg property settings, after hugepage is supported in VM type
-	cg, err := cgroups.CreateChildCgroup(info.Config.CgroupParent, domainxml.UUID, &specs.LinuxResources{
-		Memory: &specs.LinuxMemory{Limit: &memLimit},
-		CPU:    &specs.LinuxCPU{Shares: &cpuShares, Quota: &cpuQuota},
+	cpuShares := uint64(info.Config.CPUShares)
+	cg, err := cgroups.CreateChildCgroup(info.Config.CgroupParent, info.Config.DomainUUID, &specs.LinuxResources{
+		Memory: &specs.LinuxMemory{Limit: &info.Config.MemoryLimitInBytes},
+		CPU:    &specs.LinuxCPU{Shares: &cpuShares, Quota: &info.Config.CPUQuota},
 	})
 
 	if err != nil {
-		glog.Errorf("failed to create cgroup for domain %v", domainxml.Name)
+		glog.Errorf("failed to create cgroup for domain ID:%v, Name:%v", info.Config.DomainUUID, info.Config.Name)
 		return err
 	}
 
@@ -1042,4 +1042,167 @@ func (v *VirtualizationTool) RestoreToSnapshot(vmID string, snapshotID string) e
 	}
 
 	return domain.RestoreToSnapshot(snapshotID)
+}
+
+// Live update the VM compute resources
+func (v *VirtualizationTool) UpdateDomainResources(vmID string, lcr *kubeapi.LinuxContainerResources) error {
+	glog.V(4).Infof("Update Domain Resources %v, %v", vmID, lcr)
+
+	domain, err := v.domainConn.LookupDomainByUUIDString(vmID)
+	if err != nil {
+		return err
+	}
+
+	// update the vcpu count
+	domainXml, err := domain.XML()
+	if err != nil {
+		return err
+	}
+
+	var cpuUpdated bool
+	//var memUpated bool
+
+	// Update vcpus if needed, this is the reversed calculation from the Agent side
+	requestedVcpus := v.getVcpusInRequest(lcr)
+	glog.V(5).Infof("Update domain vCPU number: %v -> %v", domainXml.VCPU.Value, requestedVcpus)
+	if requestedVcpus != int64(domainXml.VCPU.Value) {
+		err := domain.SetVcpus(uint(requestedVcpus))
+		if err != nil {
+			return err
+		}
+		cpuUpdated = true
+	}
+
+	// TODO: enable the memory setting after update to newer version of libvirt in Arktos
+	//       https://github.com/futurewei-cloud/arktos-vm-runtime/issues/39
+	//// Update the memory
+	//currentMemory := domainXml.CurrentMemory.Value
+	//newmemory := *lcr.Memory.Limit / int64(defaultLibvirtDomainMemoryUnitValue)
+	//
+	//if newmemory != int64(currentMemory) {
+	//	domain.SetCurrentMemory(newmemory)
+	//}
+
+	// TODO: Update the vm config and metadata stored in Arktos-vm-runtime metadata
+	containerInfo, err := v.metadataStore.Container(vmID).Retrieve()
+	if err != nil {
+		return err
+	}
+
+	if cpuUpdated {
+		containerInfo.Config.CPUShares = lcr.CpuShares
+		containerInfo.Config.CPUQuota = lcr.CpuQuota
+		containerInfo.Config.CPUPeriod = lcr.CpuPeriod
+	}
+
+	//if memUpdated {
+	//	containerInfo.Config.MemoryLimitInBytes = *lcr.Memory.Limit
+	//}
+	//
+	err = v.metadataStore.Container(vmID).Save(
+		func(_ *types.ContainerInfo) (*types.ContainerInfo, error) {
+			return containerInfo, nil
+		})
+
+	if err != nil {
+		glog.Errorf("failed to save containerInfo for container: %v", vmID)
+		return err
+	}
+
+	return nil
+}
+
+// ensure the containerInfo.Config in-sync with the domain xml
+// in UpdateContainerResources() API, updateDomainResource function updates both VMconfig in the containerInfo and in libvirt VM domain
+// during runtime exe crash or other error situation, there exists cases the two set of VM metadaata is out of sync
+// since the libvirt domain were updated first, so keep the domain xml as source of truth
+func (v *VirtualizationTool) SyncContainerInfoWithLibvirtDomain(vmID string) (*types.ContainerInfo, error) {
+	glog.V(4).Infof("Sync vm config with libvirt domain settings for VM: %v", vmID)
+
+	mem, memUnit, cpuShares, cpuQuota, cpuPeriod, _, err := v.GetDomainConfigredResources(vmID)
+	if err != nil {
+		return nil, err
+	}
+
+	if memUnit != defaultMemoryUnit && memUnit != "K" {
+		glog.V(5).Infof("domain info: memory: %v, memoryUnit: %v, cpuShares: %v, cpuQuota: %v, cpuPeriod: %v",
+		                 mem, memUnit, cpuShares, cpuQuota, cpuPeriod )
+		return nil, fmt.Errorf("unexpected Domain MemoryUnit: %v", memUnit)
+	}
+
+	containerInfo, err := v.metadataStore.Container(vmID).Retrieve()
+	if err != nil {
+		return nil, err
+	}
+
+	configuredMem := containerInfo.Config.MemoryLimitInBytes / KiValue
+
+	needSync := false
+
+	// always compare with the bigger memUnit to void false positive
+	// due to reduced precision lose errors in bytes-mib conversions
+	if configuredMem != mem {
+		containerInfo.Config.MemoryLimitInBytes = mem * KiValue
+		needSync = true
+	}
+
+	if containerInfo.Config.CPUPeriod != cpuPeriod {
+		containerInfo.Config.CPUPeriod = cpuPeriod
+		needSync = true
+	}
+
+	if containerInfo.Config.CPUQuota != cpuQuota {
+		containerInfo.Config.CPUQuota = cpuQuota
+		needSync = true
+	}
+
+	if containerInfo.Config.CPUShares != cpuShares {
+		containerInfo.Config.CPUShares = cpuShares
+		needSync = true
+	}
+
+	if !needSync {
+		return containerInfo, nil
+	}
+
+	err = v.metadataStore.Container(vmID).Save(
+		func(_ *types.ContainerInfo) (*types.ContainerInfo, error) {
+			return containerInfo, nil
+		})
+
+	if err != nil {
+		glog.Errorf("failed to save containerInfo for container: %v", vmID)
+		return nil, err
+	}
+
+	return containerInfo, nil
+
+}
+
+func (v *VirtualizationTool) GetDomainConfigredResources(vmID string) (int64, string, int64, int64, int64, int, error) {
+	domain, err := v.domainConn.LookupDomainByUUIDString(vmID)
+	if err != nil {
+		return 0, "", 0, 0, 0, 0, err
+	}
+
+	domainXml, err := domain.XML()
+	if err != nil {
+		return 0, "", 0, 0, 0, 0, err
+	}
+
+	mem := domainXml.Memory.Value
+	memUnit := domainXml.Memory.Unit
+
+	cpuShares := domainXml.CPUTune.Shares.Value
+	cpuQuotas := domainXml.CPUTune.Quota.Value
+	cpuPeriod := domainXml.CPUTune.Period.Value
+	vCpus, _ := strconv.Atoi(domainXml.VCPU.Current)
+
+	return int64(mem), memUnit, int64(cpuShares), int64(cpuQuotas), int64(cpuPeriod), vCpus, nil
+
+}
+
+// essentially the reversed calculation in Kubelet to construct the UpdateContainerRequest
+func (v *VirtualizationTool) getVcpusInRequest(lcr *kubeapi.LinuxContainerResources) int64 {
+	return lcr.CpuQuota / lcr.CpuPeriod
 }
