@@ -251,6 +251,12 @@ func ContainerInfoToCRIContainerStatus(in *types.ContainerInfo) *kubeapi.Contain
 		Annotations: in.Config.ContainerAnnotations,
 		Mounts:      mounts,
 		LogPath:     filepath.Join(in.Config.LogDirectory, in.Config.LogPath),
+		Resources:   &kubeapi.LinuxContainerResources{
+			CpuPeriod: in.Config.CPUPeriod,
+			CpuShares: in.Config.CPUShares,
+			CpuQuota:  in.Config.CPUQuota,
+			MemoryLimitInBytes: in.Config.MemoryLimitInBytes,
+		},
 		// TODO: FinishedAt, Reason, Message
 	}
 }

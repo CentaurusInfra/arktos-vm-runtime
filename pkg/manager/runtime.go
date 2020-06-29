@@ -20,6 +20,9 @@ package manager
 import (
 	"errors"
 	"fmt"
+	"github.com/Mirantis/virtlet/pkg/utils/cgroups"
+	"github.com/opencontainers/runtime-spec/specs-go"
+	"path"
 	"strings"
 	"time"
 
@@ -132,13 +135,13 @@ func (v *VirtletRuntimeService) RunPodSandbox(ctx context.Context, in *kubeapi.R
 
 	state := kubeapi.PodSandboxState_SANDBOX_READY
 	pnd := &tapmanager.PodNetworkDesc{
-		PodID:   podID,
+		PodID:     podID,
 		PodTenant: podTenant,
-		PodNs:   podNs,
-		PodName: podName,
-		VPC:     config.Annotations["VPC"],
-		NICs:    config.Annotations["NICs"],
-		CNIArgs: config.Annotations["arktos.futurewei.com/cni-args"],
+		PodNs:     podNs,
+		PodName:   podName,
+		VPC:       config.Annotations["VPC"],
+		NICs:      config.Annotations["NICs"],
+		CNIArgs:   config.Annotations["arktos.futurewei.com/cni-args"],
 	}
 	// Mimic kubelet's method of handling nameservers.
 	// As of k8s 1.5.2, kubelet doesn't use any nameserver information from CNI.
@@ -400,7 +403,7 @@ func (v *VirtletRuntimeService) ListContainers(ctx context.Context, in *kubeapi.
 
 // ContainerStatus method implements ContainerStatus from CRI.
 func (v *VirtletRuntimeService) ContainerStatus(ctx context.Context, in *kubeapi.ContainerStatusRequest) (*kubeapi.ContainerStatusResponse, error) {
-	info, err := v.virtTool.ContainerInfo(in.ContainerId)
+	info, err := v.virtTool.SyncContainerInfoWithLibvirtDomain(in.ContainerId)
 	if err != nil {
 		return nil, err
 	}
@@ -445,16 +448,46 @@ func (v *VirtletRuntimeService) UpdateRuntimeConfig(context.Context, *kubeapi.Up
 // for container then looks for running emulator and tries to adjust its
 // current settings through cgroups
 func (v *VirtletRuntimeService) UpdateContainerResources(ctx context.Context, req *kubeapi.UpdateContainerResourcesRequest) (*kubeapi.UpdateContainerResourcesResponse, error) {
-	setByCgroup, err := v.virtTool.UpdateCpusetsForEmulatorProcess(req.GetContainerId(), req.GetLinux().CpusetCpus)
+	glog.V(4).Infof("Update Container Resources : %v", req)
+	lcr := req.GetLinux()
+	if lcr == nil {
+		glog.Errorf("linuxContainerResource is not set in UpdateContainerResourceRequest")
+		return &kubeapi.UpdateContainerResourcesResponse{}, nil
+	}
+
+	lr := linuxContinerResourceToLinuxResource(lcr)
+
+	containerId := req.ContainerId
+	info, err := v.virtTool.ContainerInfo(containerId)
 	if err != nil {
 		return nil, err
 	}
-	if !setByCgroup {
-		if err = v.virtTool.UpdateCpusetsInContainerDefinition(req.GetContainerId(), req.GetLinux().CpusetCpus); err != nil {
-			return nil, err
-		}
+
+	err = cgroups.UpdateVmCgroup(path.Join(info.Config.CgroupParent, containerId), lr)
+	if err != nil {
+		return nil, err
 	}
+
+	// TODO: should revert the CG update if the update domain resource function failed
+	err = v.virtTool.UpdateDomainResources(containerId, lcr)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubeapi.UpdateContainerResourcesResponse{}, nil
+}
+
+func linuxContinerResourceToLinuxResource(lcr *kubeapi.LinuxContainerResources) *specs.LinuxResources {
+	cpuShares := uint64(lcr.CpuShares)
+	cpuPeriod := uint64(lcr.CpuPeriod)
+
+	return &specs.LinuxResources{
+		Memory: &specs.LinuxMemory{Limit: &lcr.MemoryLimitInBytes},
+		CPU: &specs.LinuxCPU{Shares: &cpuShares,
+			Quota:  &lcr.CpuQuota,
+			Period: &cpuPeriod,
+		},
+	}
 }
 
 // Status method implements Status from CRI for both types of service, Image and Runtime.
