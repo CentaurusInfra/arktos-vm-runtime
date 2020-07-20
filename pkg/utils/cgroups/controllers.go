@@ -173,6 +173,11 @@ func (c *Controller) CgroupExists(ctl string, cgPath string) bool {
 
 // Create a new CGroup with desired resource settings
 func CreateChildCgroup(cgParent string, cgName string, res *specs.LinuxResources) (cgroups.Cgroup, error) {
+	// if cgParent is not set, default to root
+	if cgParent == "" {
+		cgParent = "/"
+	}
+
 	parent, err := cgroups.Load(cgroups.V1, cgroups.StaticPath(cgParent))
 	if err != nil {
 		glog.Errorf("Failed to load parent cgroup %v. error %v", cgParent, err)

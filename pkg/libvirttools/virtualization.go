@@ -41,6 +41,7 @@ import (
 	"github.com/Mirantis/virtlet/pkg/metadata/types"
 	"github.com/Mirantis/virtlet/pkg/utils"
 	"github.com/Mirantis/virtlet/pkg/virt"
+	containerdCgroups "github.com/containerd/cgroups"
 )
 
 const (
@@ -51,12 +52,12 @@ const (
 	defaultLibvirtDomainMemoryUnitValue = KiValue
 
 	// default to 1Gi
-	defaultMemory                       = 1048576
-	defaultMemoryUnit                   = "KiB"
-	defaultDomainType                   = "kvm"
-	defaultEmulator                     = "/usr/bin/kvm"
-	noKvmDomainType                     = "qemu"
-	noKvmEmulator                       = "/usr/bin/qemu-system-x86_64"
+	defaultMemory     = 1048576
+	defaultMemoryUnit = "KiB"
+	defaultDomainType = "kvm"
+	defaultEmulator   = "/usr/bin/kvm"
+	noKvmDomainType   = "qemu"
+	noKvmEmulator     = "/usr/bin/qemu-system-x86_64"
 
 	domainStartCheckInterval      = 250 * time.Millisecond
 	domainStartTimeout            = 10 * time.Second
@@ -221,8 +222,10 @@ func (ds *domainSettings) createDomain(config *types.VMConfig) *libvirtxml.Domai
 			libvirtxml.DomainQEMUCommandlineEnv{Name: "VMWRAPPER_KEEP_PRIVS", Value: "1"})
 	}
 
-	domain.QEMUCommandline.Envs = append(domain.QEMUCommandline.Envs,
-		libvirtxml.DomainQEMUCommandlineEnv{Name: vconfig.VmCgroupParentEnvVarName, Value: path.Join(config.CgroupParent, domain.UUID)})
+	if config.CgroupParent != "" {
+		domain.QEMUCommandline.Envs = append(domain.QEMUCommandline.Envs,
+			libvirtxml.DomainQEMUCommandlineEnv{Name: vconfig.VmCgroupParentEnvVarName, Value: path.Join(config.CgroupParent, domain.UUID)})
+	}
 
 	return domain
 }
@@ -357,7 +360,7 @@ func (v *VirtualizationTool) CreateContainer(config *types.VMConfig, netFdKey st
 		domainName:  "virtlet-" + domainUUID[:13] + "-" + config.Name,
 		netFdKey:    netFdKey,
 		vcpuNum:     config.ParsedAnnotations.VCPUCount,
-		memory:      int(config.MemoryLimitInBytes/KiValue),
+		memory:      int(config.MemoryLimitInBytes / KiValue),
 		memoryUnit:  defaultMemoryUnit,
 		cpuShares:   uint(config.CPUShares),
 		cpuPeriod:   uint64(config.CPUPeriod),
@@ -456,19 +459,27 @@ func (v *VirtualizationTool) startContainer(containerID string) error {
 
 	// create the cgroup for the qemu process
 	//TODO: hugepage setting and match with k8s pod cg property settings, after hugepage is supported in VM type
-	cpuShares := uint64(info.Config.CPUShares)
-	cg, err := cgroups.CreateChildCgroup(info.Config.CgroupParent, info.Config.DomainUUID, &specs.LinuxResources{
-		Memory: &specs.LinuxMemory{Limit: &info.Config.MemoryLimitInBytes},
-		CPU:    &specs.LinuxCPU{Shares: &cpuShares, Quota: &info.Config.CPUQuota},
-	})
+	var cg containerdCgroups.Cgroup
+	if info.Config.CgroupParent != "" {
+		cpuShares := uint64(info.Config.CPUShares)
+		cg, err = cgroups.CreateChildCgroup(info.Config.CgroupParent, info.Config.DomainUUID, &specs.LinuxResources{
+			Memory: &specs.LinuxMemory{Limit: &info.Config.MemoryLimitInBytes},
+			CPU:    &specs.LinuxCPU{Shares: &cpuShares, Quota: &info.Config.CPUQuota},
+		})
 
-	if err != nil {
-		glog.Errorf("failed to create cgroup for domain ID:%v, Name:%v", info.Config.DomainUUID, info.Config.Name)
-		return err
+		if err != nil {
+			glog.Errorf("failed to create cgroup for domain ID:%v, Name:%v", info.Config.DomainUUID, info.Config.Name)
+			return err
+		}
+	}
+	if cg != nil {
+		glog.V(4).Infof("cgroup name %v state: %v", info.Config.DomainUUID, cg.State())
 	}
 
 	if err = domain.Create(); err != nil {
-		cg.Delete()
+		if info.Config.CgroupParent != "" {
+			cg.Delete()
+		}
 		return fmt.Errorf("failed to create domain %q: %v", containerID, err)
 	}
 
@@ -1126,7 +1137,7 @@ func (v *VirtualizationTool) SyncContainerInfoWithLibvirtDomain(vmID string) (*t
 
 	if memUnit != defaultMemoryUnit && memUnit != "K" {
 		glog.V(5).Infof("domain info: memory: %v, memoryUnit: %v, cpuShares: %v, cpuQuota: %v, cpuPeriod: %v",
-		                 mem, memUnit, cpuShares, cpuQuota, cpuPeriod )
+			mem, memUnit, cpuShares, cpuQuota, cpuPeriod)
 		return nil, fmt.Errorf("unexpected Domain MemoryUnit: %v", memUnit)
 	}
 

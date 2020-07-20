@@ -46,9 +46,13 @@
     data:
       podNetworkDesc:
         DNS: null
+        cni-args: ""
+        nics: ""
         podId: 69eec606-0493-5825-73a4-c5e0c0236155
         podName: testName_0
         podNs: default
+        podTenant: ""
+        vpc: ""
     key: 69eec606-0493-5825-73a4-c5e0c0236155
 - name: 'leave: RunPodSandbox'
   value:
@@ -151,8 +155,9 @@
     <domain type="kvm">
       <name>virtlet-231700d5-c9a6-container-for-testName_0</name>
       <uuid>231700d5-c9a6-5a49-738d-99a954c51550</uuid>
-      <memory unit="MiB">1024</memory>
-      <vcpu>1</vcpu>
+      <memory unit="KiB">1048576</memory>
+      <currentMemory unit="KiB">1048576</currentMemory>
+      <vcpu current="1">2</vcpu>
       <cputune>
         <shares>0</shares>
         <period>0</period>
@@ -253,6 +258,8 @@
       log_path: /var/log/test_log_directory/container-for-testName_0_0.log
       metadata:
         name: container-for-testName_0
+      resources:
+        memory_limit_in_bytes: 1073741824
 - name: 'enter: StartContainer'
   value:
     container_id: 231700d5-c9a6-5a49-738d-99a954c51550
@@ -300,6 +307,8 @@
       log_path: /var/log/test_log_directory/container-for-testName_0_0.log
       metadata:
         name: container-for-testName_0
+      resources:
+        memory_limit_in_bytes: 1073741824
       started_at: 1524648266720331175
       state: 1
 - name: 'enter: ContainerStats'
@@ -390,9 +399,13 @@
     data:
       podNetworkDesc:
         DNS: null
+        cni-args: ""
+        nics: ""
         podId: d25ded14-d35d-510b-5749-f83cc165794e
         podName: testName_1
         podNs: default
+        podTenant: ""
+        vpc: ""
     key: d25ded14-d35d-510b-5749-f83cc165794e
 - name: 'leave: RunPodSandbox'
   value:
@@ -447,8 +460,9 @@
     <domain type="kvm">
       <name>virtlet-6b94d9a7-e22a-container-for-testName_1</name>
       <uuid>6b94d9a7-e22a-5d08-65ee-16b9b1e07ab0</uuid>
-      <memory unit="MiB">1024</memory>
-      <vcpu>1</vcpu>
+      <memory unit="KiB">1048576</memory>
+      <currentMemory unit="KiB">1048576</currentMemory>
+      <vcpu current="1">2</vcpu>
       <cputune>
         <shares>0</shares>
         <period>0</period>
@@ -595,6 +609,8 @@
       log_path: /var/log/test_log_directory/container-for-testName_1_0.log
       metadata:
         name: container-for-testName_1
+      resources:
+        memory_limit_in_bytes: 1073741824
 - name: 'enter: StartContainer'
   value:
     container_id: 6b94d9a7-e22a-5d08-65ee-16b9b1e07ab0
@@ -642,6 +658,8 @@
       log_path: /var/log/test_log_directory/container-for-testName_1_0.log
       metadata:
         name: container-for-testName_1
+      resources:
+        memory_limit_in_bytes: 1073741824
       started_at: 1524648266720331175
       state: 1
 - name: 'enter: StopContainer'
@@ -730,6 +748,8 @@
       log_path: /var/log/test_log_directory/container-for-testName_0_0.log
       metadata:
         name: container-for-testName_0
+      resources:
+        memory_limit_in_bytes: 1073741824
       started_at: 1524648266720331175
       state: 2
 - name: 'enter: RemoveContainer'

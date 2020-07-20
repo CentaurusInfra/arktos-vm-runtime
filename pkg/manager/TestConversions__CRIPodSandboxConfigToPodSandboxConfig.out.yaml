@@ -19,6 +19,7 @@
       hello: world
       virt: let
     Attempt: 0
+    CNIArgs: ""
     CgroupParent: ""
     DnsConfig:
       Options: null
@@ -32,6 +33,7 @@
     Name: testName_0
     Namespace: default
     PortMappings: null
+    Tenant: ""
     Uid: 69eec606-0493-5825-73a4-c5e0c0236155
 - in:
     annotations:
@@ -54,6 +56,7 @@
       hello: world
       virt: let
     Attempt: 0
+    CNIArgs: ""
     CgroupParent: ""
     DnsConfig:
       Options: null
@@ -67,4 +70,5 @@
     Name: testName_1
     Namespace: default
     PortMappings: null
+    Tenant: ""
     Uid: d25ded14-d35d-510b-5749-f83cc165794e

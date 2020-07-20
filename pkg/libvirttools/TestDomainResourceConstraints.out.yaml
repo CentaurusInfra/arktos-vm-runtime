@@ -3,8 +3,9 @@
     <domain type="kvm">
       <name>virtlet-231700d5-c9a6-container1</name>
       <uuid>231700d5-c9a6-5a49-738d-99a954c51550</uuid>
-      <memory unit="b">1234567</memory>
-      <vcpu>2</vcpu>
+      <memory unit="KiB">1205</memory>
+      <currentMemory unit="KiB">1205</currentMemory>
+      <vcpu current="2">4</vcpu>
       <cputune>
         <shares>100</shares>
         <period>100000</period>

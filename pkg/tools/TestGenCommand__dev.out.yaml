@@ -11,24 +11,19 @@ spec:
       runtime: virtlet
   template:
     metadata:
+      annotations:
+        apparmorlibvirtname: apparmorlibvirtvalue
+        apparmorvirtletname: apparmorvirtletvalue
+        apparmorvmsname: apparmorvmsvalue
       creationTimestamp: null
       labels:
         runtime: virtlet
       name: virtlet
     spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: extraRuntime
-                operator: In
-                values:
-                - virtlet
       containers:
       - command:
         - /libvirt.sh
-        image: mirantis/virtlet
+        image: arktosstaging/vmruntime:0.5.3
         imagePullPolicy: IfNotPresent
         name: libvirt
         readinessProbe:
@@ -67,7 +62,7 @@ spec:
           name: dev
         - mountPath: /dind
           name: dind
-      - image: mirantis/virtlet
+      - image: arktosstaging/vmruntime:0.5.3
         imagePullPolicy: IfNotPresent
         name: virtlet
         readinessProbe:
@@ -106,8 +101,6 @@ spec:
           name: k8s-pods-dir
         - mountPath: /var/log/vms
           name: vms-log
-        - mountPath: /etc/virtlet/images
-          name: image-name-translations
         - mountPath: /var/log/pods
           name: pods-log
         - mountPath: /var/log/libvirt
@@ -121,7 +114,7 @@ spec:
           name: dind
       - command:
         - /vms.sh
-        image: mirantis/virtlet
+        image: arktosstaging/vmruntime:0.5.3
         imagePullPolicy: IfNotPresent
         name: vms
         resources: {}
@@ -216,7 +209,7 @@ spec:
               optional: true
         - name: VIRTLET_IMAGE_TRANSLATIONS_DIR
           value: /etc/virtlet/images
-        image: mirantis/virtlet
+        image: arktosstaging/vmruntime:0.5.3
         imagePullPolicy: IfNotPresent
         name: prepare-node
         resources: {}
@@ -295,13 +288,22 @@ spec:
       - hostPath:
           path: /etc/libvirt/qemu
         name: qemu
-      - configMap:
-          name: virtlet-image-translations
-        name: image-name-translations
       - hostPath:
           path: /dind
         name: dind
   updateStrategy: {}
+
+---
+apiVersion: v1
+data:
+  disable_kvm: "y"
+  loglevel: "4"
+  raw_devices: sd*
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: virtlet-config
+  namespace: kube-system
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1

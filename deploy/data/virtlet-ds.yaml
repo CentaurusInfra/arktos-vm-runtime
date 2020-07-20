@@ -26,8 +26,6 @@ spec:
       hostPID: true
       # bootstrap procedure needs to create a configmap in kube-system namespace
       serviceAccountName: virtlet
-      imagePullSecrets:
-      - name: repo-arktosstaging
       initContainers:
       # The init container copies virtlet's flexvolume driver
       # to the default kubelet plugin dir and ensures that
@@ -309,15 +307,6 @@ data:
   disable_kvm: "y"
   loglevel: "4"
   raw_devices: "sd*"
----
-apiVersion: v1
-kind: Secret
-type: kubernetes.io/dockerconfigjson
-metadata:
-  name: repo-arktosstaging
-  namespace: kube-system
-data:
-  .dockerconfigjson: eyJhdXRocyI6eyJodHRwczovL2luZGV4LmRvY2tlci5pby92MS8iOnsidXNlcm5hbWUiOiJhbGthaWRzdGFnaW5nIiwicGFzc3dvcmQiOiJVc2VyQDEyMzQ1IiwiZW1haWwiOiJ4aWFvbmluZy5kaW5nQGZ1dHVyZXdlaS5jb20iLCJhdXRoIjoiWVd4cllXbGtjM1JoWjJsdVp6cFZjMlZ5UURFeU16UTEifX19
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding

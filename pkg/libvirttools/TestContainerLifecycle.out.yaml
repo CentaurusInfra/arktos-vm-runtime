@@ -29,8 +29,9 @@
     <domain type="kvm">
       <name>virtlet-231700d5-c9a6-container1</name>
       <uuid>231700d5-c9a6-5a49-738d-99a954c51550</uuid>
-      <memory unit="MiB">1024</memory>
-      <vcpu>1</vcpu>
+      <memory unit="KiB">1048576</memory>
+      <currentMemory unit="KiB">1048576</currentMemory>
+      <vcpu current="1">2</vcpu>
       <cputune>
         <shares>0</shares>
         <period>0</period>
@@ -94,6 +95,7 @@
       CPUPeriod: 0
       CPUQuota: 0
       CPUShares: 0
+      CgroupParent: ""
       ContainerAnnotations:
         foo: bar
       ContainerLabels:
@@ -132,6 +134,7 @@
       PodName: testName_0
       PodNamespace: default
       PodSandboxID: 69eec606-0493-5825-73a4-c5e0c0236155
+      PodTenant: fake-tenant
       VolumeDevices: null
     CreatedAt: 1496175540000000000
     Id: 231700d5-c9a6-5a49-738d-99a954c51550
@@ -153,6 +156,7 @@
       CPUPeriod: 0
       CPUQuota: 0
       CPUShares: 0
+      CgroupParent: ""
       ContainerAnnotations:
         foo: bar
       ContainerLabels:
@@ -191,6 +195,7 @@
       PodName: testName_0
       PodNamespace: default
       PodSandboxID: 69eec606-0493-5825-73a4-c5e0c0236155
+      PodTenant: fake-tenant
       VolumeDevices: null
     CreatedAt: 1496175540000000000
     Id: 231700d5-c9a6-5a49-738d-99a954c51550
@@ -207,6 +212,7 @@
       CPUPeriod: 0
       CPUQuota: 0
       CPUShares: 0
+      CgroupParent: ""
       ContainerAnnotations:
         foo: bar
       ContainerLabels:
@@ -245,6 +251,7 @@
       PodName: testName_0
       PodNamespace: default
       PodSandboxID: 69eec606-0493-5825-73a4-c5e0c0236155
+      PodTenant: fake-tenant
       VolumeDevices: null
     CreatedAt: 1496175540000000000
     Id: 231700d5-c9a6-5a49-738d-99a954c51550
