@@ -19,7 +19,7 @@ if [[ ! ${SKIP_TEST:-} ]]; then
   build/cmd.sh test
 fi
 
-docker build -t mirantis/virtlet .
+# docker build -t mirantis/virtlet .
 
-VIRTLET_DEMO_BRANCH=master NONINTERACTIVE=1 NO_VM_CONSOLE=1 INJECT_LOCAL_IMAGE=1 BASE_LOCATION="${SCRIPT_DIR}" deploy/demo.sh
+# VIRTLET_DEMO_BRANCH=master NONINTERACTIVE=1 NO_VM_CONSOLE=1 INJECT_LOCAL_IMAGE=1 BASE_LOCATION="${SCRIPT_DIR}" deploy/demo.sh
 # ./_output/virtlet-e2e-tests -test.v
