@@ -6,7 +6,7 @@
     stdout: "1000"
 - name: CMD
   value:
-    cmd: dmsetup create virtlet-dm-231700d5-c9a6-5a49-738d-99a954c51550
+    cmd: dmsetup create virtlet-dm-231700d5-c9a6-5a49-738d-99a954c51550 --noudevsync
     stdin: |
       0 999 linear /fakedev/69eec606-0493-5825-73a4-c5e0c0236155/volumeDevices/kubernetes.io~local-volume/root 1
 - name: CMD
@@ -17,8 +17,9 @@
     <domain type="kvm">
       <name>virtlet-231700d5-c9a6-container1</name>
       <uuid>231700d5-c9a6-5a49-738d-99a954c51550</uuid>
-      <memory unit="MiB">1024</memory>
-      <vcpu>1</vcpu>
+      <memory unit="KiB">1048576</memory>
+      <currentMemory unit="KiB">1048576</currentMemory>
+      <vcpu current="1">2</vcpu>
       <cputune>
         <shares>0</shares>
         <period>0</period>

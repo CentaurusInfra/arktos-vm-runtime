@@ -18,6 +18,7 @@ package fake
 
 import (
 	"fmt"
+	"github.com/libvirt/libvirt-go"
 	"log"
 	"path/filepath"
 	"sort"
@@ -309,6 +310,42 @@ func (d *FakeDomain) GetCPUTime() (uint64, error) {
 // GetRSS implements GetRSS of Domain interface.
 func (d *FakeDomain) GetRSS() (uint64, error) {
 	return 0, nil
+}
+
+// Reboot reboots current domain
+func (d *FakeDomain) Reboot(flags libvirt.DomainRebootFlagValues) error {
+	return fmt.Errorf("not implenmented")
+}
+
+// CreateSnapshop creates a system snapshot for current domain
+func (d *FakeDomain) CreateSnapshot(snapshotID string) error {
+	return fmt.Errorf("not implenmented")
+}
+
+func (d *FakeDomain) RestoreToSnapshot(snapshotID string) error {
+	return fmt.Errorf("not implenmented")
+}
+
+// Update domain vcpu
+func (d *FakeDomain) SetVcpus(vcpus uint) error {
+	return fmt.Errorf("not implenmented")
+}
+
+// Update domain current memory
+func (d *FakeDomain) SetCurrentMemory(memInKib uint64) error {
+	return fmt.Errorf("not implenmented")
+}
+
+type libvirtSecret struct {
+	s *libvirt.Secret
+}
+
+func (secret *libvirtSecret) SetValue(value []byte) error {
+	return secret.s.SetValue(value, 0)
+}
+
+func (secret *libvirtSecret) Remove() error {
+	return secret.s.Undefine()
 }
 
 // FakeSecret is a fake implementation of Secret interace.

@@ -189,7 +189,7 @@ func (c *FakeCNIClient) GetDummyNetwork() (*cnicurrent.Result, string, error) {
 	if err := cni.CreateNetNS(c.DummyPodId); err != nil {
 		return nil, "", fmt.Errorf("couldn't create netns for dummy pod %q: %v", c.DummyPodId, err)
 	}
-	result, err := c.AddSandboxToNetwork(c.DummyPodId, "", "")
+	result, err := c.AddSandboxToNetwork(c.DummyPodId, "", "", "", "", "", "")
 	if err != nil {
 		return nil, "", err
 	}
@@ -204,7 +204,7 @@ func (c *FakeCNIClient) getEntry(podId, podName, podNS string) *fakeCNIEntry {
 	return nil
 }
 
-func (c *FakeCNIClient) AddSandboxToNetwork(podId, podName, podNS string) (*cnicurrent.Result, error) {
+func (c *FakeCNIClient) AddSandboxToNetwork(podId, podName, podNS string, podTenant, vpc, nic, cniArgs string) (*cnicurrent.Result, error) {
 	entry := c.getEntry(podId, podName, podNS)
 	if entry.added {
 		panic("AddSandboxToNetwork() was already called")
@@ -228,7 +228,7 @@ func (c *FakeCNIClient) AddSandboxToNetwork(podId, podName, podNS string) (*cnic
 	return r, nil
 }
 
-func (c *FakeCNIClient) RemoveSandboxFromNetwork(podId, podName, podNS string) error {
+func (c *FakeCNIClient) RemoveSandboxFromNetwork(podId, podName, podNS string, podTenant, vpc, nics, cniArgs string) error {
 	entry := c.getEntry(podId, podName, podNS)
 	if !entry.added {
 		panic("RemoveSandboxFromNetwork() was called without prior AddSandboxToNetwork()")

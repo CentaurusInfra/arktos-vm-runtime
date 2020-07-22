@@ -36,9 +36,13 @@
     data:
       podNetworkDesc:
         DNS: null
+        cni-args: ""
+        nics: ""
         podId: 69eec606-0493-5825-73a4-c5e0c0236155
         podName: testName_0
         podNs: default
+        podTenant: ""
+        vpc: ""
     key: 69eec606-0493-5825-73a4-c5e0c0236155
 - name: 'leave: RunPodSandbox'
   value:
@@ -138,8 +142,9 @@
     <domain type="kvm">
       <name>virtlet-231700d5-c9a6-container-for-testName_0</name>
       <uuid>231700d5-c9a6-5a49-738d-99a954c51550</uuid>
-      <memory unit="MiB">1024</memory>
-      <vcpu>1</vcpu>
+      <memory unit="KiB">1048576</memory>
+      <currentMemory unit="KiB">1048576</currentMemory>
+      <vcpu current="1">2</vcpu>
       <cputune>
         <shares>0</shares>
         <period>0</period>
@@ -226,6 +231,8 @@
       mounts:
       - container_path: /mnt
         host_path: __top__/kubelet-root/69eec606-0493-5825-73a4-c5e0c0236155/volumes/virtlet~flexvolume_driver/vol1
+      resources:
+        memory_limit_in_bytes: 1073741824
 - name: 'enter: StartContainer'
   value:
     container_id: 231700d5-c9a6-5a49-738d-99a954c51550

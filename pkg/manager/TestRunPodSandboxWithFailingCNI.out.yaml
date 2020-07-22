@@ -21,9 +21,13 @@
     data:
       podNetworkDesc:
         DNS: null
+        cni-args: ""
+        nics: ""
         podId: should-fail-cni
         podName: testName_0
         podNs: default
+        podTenant: ""
+        vpc: ""
     key: should-fail-cni
 - name: 'fdManager: ReleaseFDs'
   value: should-fail-cni

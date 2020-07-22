@@ -138,7 +138,7 @@ func TestCreateRemoveVirtualBlockDevice(t *testing.T) {
 			{
 				Name: "CMD",
 				Value: map[string]string{
-					"cmd":   "dmsetup create virtlet-dm-foobar",
+					"cmd":   "dmsetup create virtlet-dm-foobar --noudevsync",
 					"stdin": "0 3 linear /dev/rootdev 1\n",
 				},
 			},

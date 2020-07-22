@@ -4,6 +4,7 @@
         hello: world
         virt: let
       Attempt: 0
+      CNIArgs: ""
       CgroupParent: ""
       DnsConfig: null
       Hostname: localhost
@@ -14,6 +15,7 @@
       Name: testName_0
       Namespace: default
       PortMappings: null
+      Tenant: fake-tenant
       Uid: 69eec606-0493-5825-73a4-c5e0c0236155
     ContainerSideNetwork: null
     CreatedAt: 1496175540000000000
@@ -31,6 +33,7 @@
     metadata:
       name: testName_0
       namespace: default
+      tenant: fake-tenant
       uid: 69eec606-0493-5825-73a4-c5e0c0236155
 - in:
     Config:
@@ -38,6 +41,7 @@
         hello: world
         virt: let
       Attempt: 0
+      CNIArgs: ""
       CgroupParent: ""
       DnsConfig: null
       Hostname: localhost
@@ -48,6 +52,7 @@
       Name: testName_1
       Namespace: default
       PortMappings: null
+      Tenant: fake-tenant
       Uid: d25ded14-d35d-510b-5749-f83cc165794e
     ContainerSideNetwork: null
     CreatedAt: 1496175550000000000
@@ -65,5 +70,6 @@
     metadata:
       name: testName_1
       namespace: default
+      tenant: fake-tenant
       uid: d25ded14-d35d-510b-5749-f83cc165794e
     state: 1

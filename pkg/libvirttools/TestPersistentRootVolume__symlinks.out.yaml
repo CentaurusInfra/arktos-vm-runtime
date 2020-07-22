@@ -7,7 +7,7 @@
     stdout: "17"
 - name: CMD
   value:
-    cmd: dmsetup create virtlet-dm-77f29a0e-46af-4188-a6af-9ff8b8a65224
+    cmd: dmsetup create virtlet-dm-77f29a0e-46af-4188-a6af-9ff8b8a65224 --noudevsync
     stdin: |
       0 16 linear /dev/rootdev 1
 - name: CMD
@@ -33,7 +33,7 @@
     stdout: "17"
 - name: CMD
   value:
-    cmd: dmsetup create virtlet-dm-77f29a0e-46af-4188-a6af-9ff8b8a65224
+    cmd: dmsetup create virtlet-dm-77f29a0e-46af-4188-a6af-9ff8b8a65224 --noudevsync
     stdin: |
       0 16 linear /dev/rootdev 1
 - name: end setup -- root disk
