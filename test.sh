@@ -11,8 +11,12 @@ else
 fi
 
 SCRIPT_DIR="$(cd $(dirname "$(readlinkf "${BASH_SOURCE}")"); pwd)"
+
 cd "${SCRIPT_DIR}"
 
+build/cmd.sh clean
+# remove the update-bindata once CI is stablized
+build/cmd.sh update-bindata
 build/cmd.sh build
 build/cmd.sh copy
 if [[ ! ${SKIP_TEST:-} ]]; then

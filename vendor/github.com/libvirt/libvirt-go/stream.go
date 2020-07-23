@@ -28,10 +28,8 @@ package libvirt
 
 /*
 #cgo pkg-config: libvirt
-#include <libvirt/libvirt.h>
-#include <libvirt/virterror.h>
 #include <stdlib.h>
-#include "stream_cfuncs.h"
+#include "stream_wrapper.h"
 */
 import "C"
 import (
@@ -54,48 +52,64 @@ const (
 	STREAM_EVENT_HANGUP   = StreamEventType(C.VIR_STREAM_EVENT_HANGUP)
 )
 
+type StreamRecvFlagsValues int
+
+const (
+	STREAM_RECV_STOP_AT_HOLE = StreamRecvFlagsValues(C.VIR_STREAM_RECV_STOP_AT_HOLE)
+)
+
 type Stream struct {
 	ptr C.virStreamPtr
 }
 
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamAbort
 func (v *Stream) Abort() error {
-	result := C.virStreamAbort(v.ptr)
+	var err C.virError
+	result := C.virStreamAbortWrapper(v.ptr, &err)
 	if result == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 
 	return nil
 }
 
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamFinish
 func (v *Stream) Finish() error {
-	result := C.virStreamFinish(v.ptr)
+	var err C.virError
+	result := C.virStreamFinishWrapper(v.ptr, &err)
 	if result == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 
 	return nil
 }
 
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamFree
 func (v *Stream) Free() error {
-	ret := C.virStreamFree(v.ptr)
+	var err C.virError
+	ret := C.virStreamFreeWrapper(v.ptr, &err)
 	if ret == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 	return nil
 }
 
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamRef
 func (c *Stream) Ref() error {
-	ret := C.virStreamRef(c.ptr)
+	var err C.virError
+	ret := C.virStreamRefWrapper(c.ptr, &err)
 	if ret == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 	return nil
 }
 
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamRecv
 func (v *Stream) Recv(p []byte) (int, error) {
-	n := C.virStreamRecv(v.ptr, (*C.char)(unsafe.Pointer(&p[0])), C.size_t(len(p)))
+	var err C.virError
+	n := C.virStreamRecvWrapper(v.ptr, (*C.char)(unsafe.Pointer(&p[0])), C.size_t(len(p)), &err)
 	if n < 0 {
-		return 0, GetLastError()
+		return 0, makeError(&err)
 	}
 	if n == 0 {
 		return 0, io.EOF
@@ -104,19 +118,71 @@ func (v *Stream) Recv(p []byte) (int, error) {
 	return int(n), nil
 }
 
-func (v *Stream) Send(p []byte) (int, error) {
-	n := C.virStreamSend(v.ptr, (*C.char)(unsafe.Pointer(&p[0])), C.size_t(len(p)))
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamRecvFlags
+func (v *Stream) RecvFlags(p []byte, flags StreamRecvFlagsValues) (int, error) {
+	if C.LIBVIR_VERSION_NUMBER < 3004000 {
+		return 0, makeNotImplementedError("virStreamRecvFlags")
+	}
+
+	var err C.virError
+	n := C.virStreamRecvFlagsWrapper(v.ptr, (*C.char)(unsafe.Pointer(&p[0])), C.size_t(len(p)), C.uint(flags), &err)
 	if n < 0 {
-		return 0, GetLastError()
+		return 0, makeError(&err)
 	}
 	if n == 0 {
 		return 0, io.EOF
 	}
 
 	return int(n), nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamRecvHole
+func (v *Stream) RecvHole(flags uint) (int64, error) {
+	if C.LIBVIR_VERSION_NUMBER < 3004000 {
+		return 0, makeNotImplementedError("virStreamSparseRecvHole")
+	}
+
+	var len C.longlong
+	var err C.virError
+	ret := C.virStreamRecvHoleWrapper(v.ptr, &len, C.uint(flags), &err)
+	if ret < 0 {
+		return 0, makeError(&err)
+	}
+
+	return int64(len), nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamSend
+func (v *Stream) Send(p []byte) (int, error) {
+	var err C.virError
+	n := C.virStreamSendWrapper(v.ptr, (*C.char)(unsafe.Pointer(&p[0])), C.size_t(len(p)), &err)
+	if n < 0 {
+		return 0, makeError(&err)
+	}
+	if n == 0 {
+		return 0, io.EOF
+	}
+
+	return int(n), nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamSendHole
+func (v *Stream) SendHole(len int64, flags uint32) error {
+	if C.LIBVIR_VERSION_NUMBER < 3004000 {
+		return makeNotImplementedError("virStreamSendHole")
+	}
+
+	var err C.virError
+	ret := C.virStreamSendHoleWrapper(v.ptr, C.longlong(len), C.uint(flags), &err)
+	if ret < 0 {
+		return makeError(&err)
+	}
+
+	return nil
 }
 
 type StreamSinkFunc func(*Stream, []byte) (int, error)
+type StreamSinkHoleFunc func(*Stream, int64) error
 
 //export streamSinkCallback
 func streamSinkCallback(stream C.virStreamPtr, cdata *C.char, nbytes C.size_t, callbackID int) int {
@@ -141,20 +207,61 @@ func streamSinkCallback(stream C.virStreamPtr, cdata *C.char, nbytes C.size_t, c
 	return retnbytes
 }
 
+//export streamSinkHoleCallback
+func streamSinkHoleCallback(stream C.virStreamPtr, length C.longlong, callbackID int) int {
+	callbackFunc := getCallbackId(callbackID)
+
+	callback, ok := callbackFunc.(StreamSinkHoleFunc)
+	if !ok {
+		panic("Incorrect stream sink hole func callback")
+	}
+
+	err := callback(&Stream{ptr: stream}, int64(length))
+	if err != nil {
+		return -1
+	}
+
+	return 0
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamRecvAll
 func (v *Stream) RecvAll(handler StreamSinkFunc) error {
 
 	callbackID := registerCallbackId(handler)
 
-	ret := C.virStreamRecvAll_cgo(v.ptr, (C.int)(callbackID))
+	var err C.virError
+	ret := C.virStreamRecvAllWrapper(v.ptr, (C.int)(callbackID), &err)
 	freeCallbackId(callbackID)
 	if ret == -1 {
-		return GetLastError()
+		return makeError(&err)
+	}
+
+	return nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamSparseRecvAll
+func (v *Stream) SparseRecvAll(handler StreamSinkFunc, holeHandler StreamSinkHoleFunc) error {
+	if C.LIBVIR_VERSION_NUMBER < 3004000 {
+		return makeNotImplementedError("virStreamSparseSendAll")
+	}
+
+	callbackID := registerCallbackId(handler)
+	holeCallbackID := registerCallbackId(holeHandler)
+
+	var err C.virError
+	ret := C.virStreamSparseRecvAllWrapper(v.ptr, (C.int)(callbackID), (C.int)(holeCallbackID), &err)
+	freeCallbackId(callbackID)
+	freeCallbackId(holeCallbackID)
+	if ret == -1 {
+		return makeError(&err)
 	}
 
 	return nil
 }
 
 type StreamSourceFunc func(*Stream, int) ([]byte, error)
+type StreamSourceHoleFunc func(*Stream) (bool, int64, error)
+type StreamSourceSkipFunc func(*Stream, int64) error
 
 //export streamSourceCallback
 func streamSourceCallback(stream C.virStreamPtr, cdata *C.char, nbytes C.size_t, callbackID int) int {
@@ -183,14 +290,79 @@ func streamSourceCallback(stream C.virStreamPtr, cdata *C.char, nbytes C.size_t,
 	return nretbytes
 }
 
+//export streamSourceHoleCallback
+func streamSourceHoleCallback(stream C.virStreamPtr, cinData *C.int, clength *C.longlong, callbackID int) int {
+	callbackFunc := getCallbackId(callbackID)
+
+	callback, ok := callbackFunc.(StreamSourceHoleFunc)
+	if !ok {
+		panic("Incorrect stream sink hole func callback")
+	}
+
+	inData, length, err := callback(&Stream{ptr: stream})
+	if err != nil {
+		return -1
+	}
+
+	if inData {
+		*cinData = 1
+	} else {
+		*cinData = 0
+	}
+	*clength = C.longlong(length)
+
+	return 0
+}
+
+//export streamSourceSkipCallback
+func streamSourceSkipCallback(stream C.virStreamPtr, length C.longlong, callbackID int) int {
+	callbackFunc := getCallbackId(callbackID)
+
+	callback, ok := callbackFunc.(StreamSourceSkipFunc)
+	if !ok {
+		panic("Incorrect stream sink skip func callback")
+	}
+
+	err := callback(&Stream{ptr: stream}, int64(length))
+	if err != nil {
+		return -1
+	}
+
+	return 0
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamSendAll
 func (v *Stream) SendAll(handler StreamSourceFunc) error {
 
 	callbackID := registerCallbackId(handler)
 
-	ret := C.virStreamSendAll_cgo(v.ptr, (C.int)(callbackID))
+	var err C.virError
+	ret := C.virStreamSendAllWrapper(v.ptr, (C.int)(callbackID), &err)
 	freeCallbackId(callbackID)
 	if ret == -1 {
-		return GetLastError()
+		return makeError(&err)
+	}
+
+	return nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamSparseSendAll
+func (v *Stream) SparseSendAll(handler StreamSourceFunc, holeHandler StreamSourceHoleFunc, skipHandler StreamSourceSkipFunc) error {
+	if C.LIBVIR_VERSION_NUMBER < 3004000 {
+		return makeNotImplementedError("virStreamSparseSendAll")
+	}
+
+	callbackID := registerCallbackId(handler)
+	holeCallbackID := registerCallbackId(holeHandler)
+	skipCallbackID := registerCallbackId(skipHandler)
+
+	var err C.virError
+	ret := C.virStreamSparseSendAllWrapper(v.ptr, (C.int)(callbackID), (C.int)(holeCallbackID), (C.int)(skipCallbackID), &err)
+	freeCallbackId(callbackID)
+	freeCallbackId(holeCallbackID)
+	freeCallbackId(skipCallbackID)
+	if ret == -1 {
+		return makeError(&err)
 	}
 
 	return nil
@@ -198,12 +370,14 @@ func (v *Stream) SendAll(handler StreamSourceFunc) error {
 
 type StreamEventCallback func(*Stream, StreamEventType)
 
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamEventAddCallback
 func (v *Stream) EventAddCallback(events StreamEventType, callback StreamEventCallback) error {
 	callbackID := registerCallbackId(callback)
 
-	ret := C.virStreamEventAddCallback_cgo(v.ptr, (C.int)(events), (C.int)(callbackID))
+	var err C.virError
+	ret := C.virStreamEventAddCallbackWrapper(v.ptr, (C.int)(events), (C.int)(callbackID), &err)
 	if ret == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 
 	return nil
@@ -221,19 +395,23 @@ func streamEventCallback(st C.virStreamPtr, events int, callbackID int) {
 	callback(&Stream{ptr: st}, StreamEventType(events))
 }
 
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamEventUpdateCallback
 func (v *Stream) EventUpdateCallback(events StreamEventType) error {
-	ret := C.virStreamEventUpdateCallback(v.ptr, (C.int)(events))
+	var err C.virError
+	ret := C.virStreamEventUpdateCallbackWrapper(v.ptr, (C.int)(events), &err)
 	if ret == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 
 	return nil
 }
 
+// See also https://libvirt.org/html/libvirt-libvirt-stream.html#virStreamEventRemoveCallback
 func (v *Stream) EventRemoveCallback() error {
-	ret := C.virStreamEventRemoveCallback(v.ptr)
+	var err C.virError
+	ret := C.virStreamEventRemoveCallbackWrapper(v.ptr, &err)
 	if ret == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 
 	return nil

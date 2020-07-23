@@ -147,9 +147,9 @@ imports:
 - name: github.com/kr/pty
   version: f7ee69f31298ecbe5d2b349c711e2547a617d398
 - name: github.com/libvirt/libvirt-go
-  version: c3209e4ba8b8dda65c85ca0ac04302e55895caf7
+  version: a0815d68d2c703ca2e64d61ba2079db03fa4f4fd
 - name: github.com/libvirt/libvirt-go-xml
-  version: 661c62056664441ce89e9224e1ce401b67fa0f07
+  version: 925dc82706c69a33eafba104f94a19cd374e5c85
 - name: github.com/Microsoft/go-winio
   version: 78439966b38d69bf38227fbf57ac8a6fee70f69a
 - name: github.com/nu7hatch/gouuid

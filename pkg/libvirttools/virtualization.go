@@ -24,7 +24,6 @@ import (
 	kubeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -85,7 +84,7 @@ type domainSettings struct {
 	domainUUID       string
 	memory           int
 	memoryUnit       string
-	vcpuNum          int
+	vcpuNum          uint
 	cpuShares        uint
 	cpuPeriod        uint64
 	cpuQuota         int64
@@ -141,10 +140,11 @@ func (ds *domainSettings) createDomain(config *types.VMConfig) *libvirtxml.Domai
 		UUID:          ds.domainUUID,
 		Memory:        &libvirtxml.DomainMemory{Value: uint(ds.memory), Unit: defaultMemoryUnit},
 		CurrentMemory: &libvirtxml.DomainCurrentMemory{Value: uint(ds.memory), Unit: defaultMemoryUnit},
-		// TODO: set max memory and CPU to host allocatable, it is controlled by the CG anyways
-		// Arktos-vm-runtime issue 39
-		// MaximumMemory: &libvirtxml.DomainMaxMemory{Value: uint(ds.memory * 2), Unit: defaultMemoryUnit, Slots: 16},
-		VCPU: &libvirtxml.DomainVCPU{Current: strconv.Itoa(ds.vcpuNum), Value: 2 * ds.vcpuNum},
+		MaximumMemory: &libvirtxml.DomainMaxMemory{Value: getMaxMemoryInKiB(ds), Unit: defaultMemoryUnit, Slots: 16},
+		VCPU: &libvirtxml.DomainVCPU{
+			Current: ds.vcpuNum,
+			Value:   getMaxVcpus(ds),
+		},
 
 		CPUTune: &libvirtxml.DomainCPUTune{
 			Shares: &libvirtxml.DomainCPUTuneShares{Value: ds.cpuShares},
@@ -172,12 +172,18 @@ func (ds *domainSettings) createDomain(config *types.VMConfig) *libvirtxml.Domai
 		},
 	}
 
+	// TODO: expose this setting to users
+	//       default cpuMode to hostModel in domainConfig
+	//       this seems to be a wall we are hitting with the current annotation based setting
+	//       design of the direct convert to domain definition can help here
+	numaid := uint(0)
 	// Set cpu model.
 	// If user understand the cpu definition of libvirt,
 	// the user is very professional, we prior to use it.
 	if config.ParsedAnnotations.CPUSetting != nil {
 		domain.CPU = config.ParsedAnnotations.CPUSetting
 	} else {
+		glog.V(4).Infof("Setting up CPU...")
 		switch ds.cpuModel {
 		case types.CPUModelHostModel:
 			// The following enables nested virtualization.
@@ -189,10 +195,14 @@ func (ds *domainSettings) createDomain(config *types.VMConfig) *libvirtxml.Domai
 				Model: &libvirtxml.DomainCPUModel{
 					Fallback: "forbid",
 				},
-				Features: []libvirtxml.DomainCPUFeature{
-					{
-						Policy: "require",
-						Name:   "vmx",
+				Numa: &libvirtxml.DomainNuma{
+					Cell: []libvirtxml.DomainCell{
+						{
+							ID:     &numaid,
+							CPUs:   getMaxVcpusOrderString(getMaxVcpus(ds)),
+							Memory: uint(ds.memory),
+							Unit:   defaultMemoryUnit,
+						},
 					},
 				},
 			}
@@ -204,13 +214,14 @@ func (ds *domainSettings) createDomain(config *types.VMConfig) *libvirtxml.Domai
 	}
 
 	if ds.systemUUID != nil {
-		domain.SysInfo = &libvirtxml.DomainSysInfo{
-			Type: "smbios",
-			System: &libvirtxml.DomainSysInfoSystem{
-				Entry: []libvirtxml.DomainSysInfoEntry{
-					{
-						Name:  "uuid",
-						Value: ds.systemUUID.String(),
+		domain.SysInfo = []libvirtxml.DomainSysInfo{
+			{
+				FWCfg: &libvirtxml.DomainSysInfoFWCfg{
+					Entry: []libvirtxml.DomainSysInfoEntry{
+						{
+							Name:  "uuid",
+							Value: ds.systemUUID.String(),
+						},
 					},
 				},
 			},
@@ -228,6 +239,22 @@ func (ds *domainSettings) createDomain(config *types.VMConfig) *libvirtxml.Domai
 	}
 
 	return domain
+}
+
+// Helper functions
+// TODO: set max memory and CPU to host allocatable, it is controlled by the CG anyways
+//       arktos runtime issue https://github.com/futurewei-cloud/arktos-vm-runtime/issues/44
+// The ds has the memory set already
+func getMaxMemoryInKiB(ds *domainSettings) uint {
+	return uint(ds.memory * 2)
+}
+
+func getMaxVcpus(ds *domainSettings) uint {
+	return 2 * ds.vcpuNum
+}
+
+func getMaxVcpusOrderString(vcpus uint) string {
+	return fmt.Sprintf("0-%d", vcpus-1)
 }
 
 // VirtualizationConfig specifies configuration options for VirtualizationTool.
@@ -359,7 +386,7 @@ func (v *VirtualizationTool) CreateContainer(config *types.VMConfig, netFdKey st
 		// long path names for qemu monitor socket
 		domainName:  "virtlet-" + domainUUID[:13] + "-" + config.Name,
 		netFdKey:    netFdKey,
-		vcpuNum:     config.ParsedAnnotations.VCPUCount,
+		vcpuNum:     uint(config.ParsedAnnotations.VCPUCount),
 		memory:      int(config.MemoryLimitInBytes / KiValue),
 		memoryUnit:  defaultMemoryUnit,
 		cpuShares:   uint(config.CPUShares),
@@ -1084,15 +1111,13 @@ func (v *VirtualizationTool) UpdateDomainResources(vmID string, lcr *kubeapi.Lin
 		cpuUpdated = true
 	}
 
-	// TODO: enable the memory setting after update to newer version of libvirt in Arktos
-	//       https://github.com/futurewei-cloud/arktos-vm-runtime/issues/39
-	//// Update the memory
-	//currentMemory := domainXml.CurrentMemory.Value
-	//newmemory := *lcr.Memory.Limit / int64(defaultLibvirtDomainMemoryUnitValue)
-	//
-	//if newmemory != int64(currentMemory) {
-	//	domain.SetCurrentMemory(newmemory)
-	//}
+	// Update the memory
+	currentMemory := domainXml.CurrentMemory.Value
+	newmemory := lcr.MemoryLimitInBytes / int64(defaultLibvirtDomainMemoryUnitValue)
+
+	if newmemory != int64(currentMemory) {
+		domain.SetCurrentMemory(uint64(newmemory))
+	}
 
 	// TODO: Update the vm config and metadata stored in Arktos-vm-runtime metadata
 	containerInfo, err := v.metadataStore.Container(vmID).Retrieve()
@@ -1207,9 +1232,8 @@ func (v *VirtualizationTool) GetDomainConfigredResources(vmID string) (int64, st
 	cpuShares := domainXml.CPUTune.Shares.Value
 	cpuQuotas := domainXml.CPUTune.Quota.Value
 	cpuPeriod := domainXml.CPUTune.Period.Value
-	vCpus, _ := strconv.Atoi(domainXml.VCPU.Current)
-
-	return int64(mem), memUnit, int64(cpuShares), int64(cpuQuotas), int64(cpuPeriod), vCpus, nil
+	vCpus := domainXml.VCPU.Current
+	return int64(mem), memUnit, int64(cpuShares), int64(cpuQuotas), int64(cpuPeriod), int(vCpus), nil
 
 }
 

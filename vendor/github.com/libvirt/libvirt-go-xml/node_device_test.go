@@ -30,6 +30,11 @@ import (
 	"testing"
 )
 
+var pciDomain uint = 1
+var pciBus uint = 21
+var pciSlot uint = 10
+var pciFunc uint = 50
+
 var NodeDeviceTestData = []struct {
 	Object *NodeDevice
 	XML    []string
@@ -38,13 +43,15 @@ var NodeDeviceTestData = []struct {
 		Object: &NodeDevice{
 			Name:   "pci_0000_81_00_0",
 			Parent: "pci_0000_80_01_0",
-			Driver: "ixgbe",
+			Driver: &NodeDeviceDriver{
+				Name: "ixgbe",
+			},
 			Capability: NodeDeviceCapability{
 				PCI: &NodeDevicePCICapability{
-					Domain:   1,
-					Bus:      21,
-					Slot:     10,
-					Function: 50,
+					Domain:   &pciDomain,
+					Bus:      &pciBus,
+					Slot:     &pciSlot,
+					Function: &pciFunc,
 					Product: NodeDeviceIDName{
 						ID:   "0x1528",
 						Name: "Ethernet Controller 10-Gigabit X540-AT2",
@@ -61,8 +68,9 @@ var NodeDeviceTestData = []struct {
 					},
 					Capabilities: []NodeDevicePCISubCapability{
 						NodeDevicePCISubCapability{
-							Type:     "virt_functions",
-							MaxCount: 63,
+							VirtFunctions: &NodeDevicePCIVirtFunctionsCapability{
+								MaxCount: 63,
+							},
 						},
 					},
 				},

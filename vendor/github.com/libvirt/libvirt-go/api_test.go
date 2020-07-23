@@ -52,7 +52,7 @@ var (
 		/* Obsolete we use virConnectDomainEventRegisterAny instead */
 		"virConnectDomainEventRegister",
 
-		/* Wrapped in connect_cfuncs.go instead */
+		/* Wrapped in connect_wrapper.go instead */
 		"virConnectOpenAuth",
 		"virConnectRegisterCloseCallback",
 
@@ -68,7 +68,10 @@ var (
 		/* Only needed at C level */
 		"virCopyLastError",
 		"virFreeError",
+		"virGetLastError",
 		"virGetLastErrorMessage",
+		"virGetLastErrorCode",
+		"virGetLastErrorDomain",
 		"virResetLastError",
 		"virSaveLastError",
 		"virDefaultErrorFunc",
@@ -143,11 +146,16 @@ var (
 		/* Typedefs that don't need exposing as is */
 		"virStreamSinkFunc",
 		"virStreamSourceFunc",
+		"virStreamSinkHoleFunc",
+		"virStreamSourceHoleFunc",
+		"virStreamSourceSkipFunc",
 
 		/* Only needed at C level */
 		"virDomainGetConnect",
 		"virDomainSnapshotGetConnect",
 		"virDomainSnapshotGetDomain",
+		"virDomainCheckpointGetConnect",
+		"virDomainCheckpointGetDomain",
 		"virInterfaceGetConnect",
 		"virNetworkGetConnect",
 		"virSecretGetConnect",
@@ -155,24 +163,10 @@ var (
 		"virStorageVolGetConnect",
 
 		/* Only needed at C level */
-		"virTypedParamsAddBoolean",
-		"virTypedParamsAddDouble",
 		"virTypedParamsAddFromString",
-		"virTypedParamsAddInt",
-		"virTypedParamsAddLLong",
-		"virTypedParamsAddString",
 		"virTypedParamsAddStringList",
-		"virTypedParamsAddUInt",
-		"virTypedParamsAddULLong",
 		"virTypedParamsGet",
-		"virTypedParamsGetBoolean",
-		"virTypedParamsGetDouble",
-		"virTypedParamsGetInt",
-		"virTypedParamsGetLLong",
-		"virTypedParamsGetString",
-		"virTypedParamsGetUInt",
-		"virTypedParamsGetULLong",
-		"virTypedParamsFree",
+		"virTypedParamsClear",
 	}
 
 	ignoreMacros = []string{
@@ -214,6 +208,7 @@ var (
 		"VIR_STORAGE_POOL_EVENT_CALLBACK",
 		"VIR_UNUSE_CPU",
 		"VIR_USE_CPU",
+		"VIR_TYPED_PARAM_FIELD_LENGTH",
 	}
 
 	ignoreEnums = []string{
@@ -239,6 +234,13 @@ var (
 		"VIR_DOMAIN_SCHED_FIELD_ULLONG",
 
 		"VIR_TYPED_PARAM_STRING_OKAY",
+		"VIR_TYPED_PARAM_BOOLEAN",
+		"VIR_TYPED_PARAM_DOUBLE",
+		"VIR_TYPED_PARAM_INT",
+		"VIR_TYPED_PARAM_LLONG",
+		"VIR_TYPED_PARAM_STRING",
+		"VIR_TYPED_PARAM_UINT",
+		"VIR_TYPED_PARAM_ULLONG",
 	}
 )
 
@@ -389,7 +391,7 @@ func ProcessFile(path string) []string {
 
 	defer file.Close()
 
-	re, err := regexp.Compile("C\\.((vir|VIR|LIBVIR)[a-zA-Z0-9_]+?)(Compat|_cgo)?\\b")
+	re, err := regexp.Compile("C\\.((vir|VIR|LIBVIR)[a-zA-Z0-9_]+?)(Wrapper)?\\b")
 	if err != nil {
 		panic(err)
 	}
