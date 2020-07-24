@@ -105,14 +105,14 @@ function update_dockerfile_from {
 function ensure_build_image {
     update_dockerfile_from "${project_dir}/images/Dockerfile.build-base" "${project_dir}/images/Dockerfile.virtlet-base" virtlet_base_image
     update_dockerfile_from "${project_dir}/images/Dockerfile.build" "${project_dir}/images/Dockerfile.build-base" build_base_image
-    update_dockerfile_from "${project_dir}/images/Dockerfile.virtlet" "${project_dir}/images/Dockerfile.virtlet-base"
+   # update_dockerfile_from "${project_dir}/images/Dockerfile.arktosvmruntime" "${project_dir}/images/Dockerfile.arktosvmruntime-base"
 
     if ! image_exists "${build_image}"; then
         if ! image_exists "${build_base_image}"; then
             if ! image_exists "${virtlet_base_image}"; then
                 echo >&2 "Trying to pull the base image ${virtlet_base_image}..."
                 if ! docker pull "${virtlet_base_image}"; then
-                    docker build -t "${virtlet_base_image}" -f "${project_dir}/images/Dockerfile.virtlet-base" "${project_dir}/images"
+                    docker build -t "${virtlet_base_image}" -f "${project_dir}/images/Dockerfile.arktosvmruntime-base" "${project_dir}/images"
                 fi
             fi
             echo >&2 "Trying to pull the build base image ${build_base_image}..."
@@ -395,8 +395,8 @@ function gobuild {
 
 function build_image_internal {
     build_internal
-    tar -c _output -C "${project_dir}/images" image_skel/ Dockerfile.virtlet |
-        docker build -t "${virtlet_image}" -f Dockerfile.virtlet -
+    tar -c _output -C "${project_dir}/images" image_skel/ Dockerfile.arktosvmruntime |
+        docker build -t "${virtlet_image}" -f Dockerfile.arktosvmruntime -
 }
 
 function install_vendor_internal {
