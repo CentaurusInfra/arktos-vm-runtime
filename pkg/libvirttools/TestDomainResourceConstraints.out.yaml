@@ -3,6 +3,7 @@
     <domain type="kvm">
       <name>virtlet-231700d5-c9a6-container1</name>
       <uuid>231700d5-c9a6-5a49-738d-99a954c51550</uuid>
+      <maxMemory unit="KiB" slots="16">2410</maxMemory>
       <memory unit="KiB">1205</memory>
       <currentMemory unit="KiB">1205</currentMemory>
       <vcpu current="2">4</vcpu>

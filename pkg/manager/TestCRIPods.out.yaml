@@ -155,6 +155,7 @@
     <domain type="kvm">
       <name>virtlet-231700d5-c9a6-container-for-testName_0</name>
       <uuid>231700d5-c9a6-5a49-738d-99a954c51550</uuid>
+      <maxMemory unit="KiB" slots="16">2097152</maxMemory>
       <memory unit="KiB">1048576</memory>
       <currentMemory unit="KiB">1048576</currentMemory>
       <vcpu current="1">2</vcpu>
@@ -460,6 +461,7 @@
     <domain type="kvm">
       <name>virtlet-6b94d9a7-e22a-container-for-testName_1</name>
       <uuid>6b94d9a7-e22a-5d08-65ee-16b9b1e07ab0</uuid>
+      <maxMemory unit="KiB" slots="16">2097152</maxMemory>
       <memory unit="KiB">1048576</memory>
       <currentMemory unit="KiB">1048576</currentMemory>
       <vcpu current="1">2</vcpu>

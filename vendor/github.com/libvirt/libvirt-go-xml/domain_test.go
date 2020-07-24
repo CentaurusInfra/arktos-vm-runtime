@@ -53,6 +53,7 @@ var domainID int = 3
 
 var uhciIndex uint = 0
 var uhciAddr = PCIAddress{0, 0, 1, 2}
+var nvmeAddr = PCIAddress{0, 1, 3, 0}
 var pciIndex uint = 0
 var pciTargetChassisNr uint = 7
 var pciTargetChassis uint = 23
@@ -85,6 +86,7 @@ var rngAddr = PCIAddress{0, 0, 9, 0}
 var hostdevSCSI = DriveAddress{0, 0, 3, 0}
 
 var serialPort uint = 0
+var parallelPort uint = 0
 var tabletBus uint = 0
 var tabletPort string = "1.1"
 
@@ -99,7 +101,8 @@ var memorydevAddressSlot uint = 0
 var memorydevAddressBase uint64 = 4294967296
 
 var rebootTimeout int = 0
-var cellID uint = 0
+var cellID0 uint = 0
+var cellID1 uint = 1
 
 var ipv6Prefix uint = 24
 
@@ -119,6 +122,16 @@ var ovsInterfaceID = "73728ac4-53d9-44de-8438-8d8f90beca00"
 var midoInterfaceID = "73728ac4-53d9-44de-8438-8d8f90beca00"
 
 var nvramReg uint64 = 0x4000
+
+var smartcardController uint = 0
+var smartcardSlot uint = 7
+
+var redirBus uint = 0
+var redirPort string = "3"
+
+var redirfilterClass uint = 0x08
+var redirfilterProduct uint = 0x2007
+var redirfilterVendor uint = 0x15e1
 
 var domainTestData = []struct {
 	Object   Document
@@ -142,6 +155,10 @@ var domainTestData = []struct {
 			Name:        "test",
 			Title:       "Test",
 			Description: "A test guest config",
+			Metadata: &DomainMetadata{
+				XML: "<myvalue xmlns='http://myapp.com/schemeas/my/1.0'><widget name='foo'/></myvalue>" +
+					"<myothervalue xmlns='http://myotherapp.com/schemeas/my/1.0'><gizmo name='foo'/></myothervalue>",
+			},
 			Devices: &DomainDeviceList{
 				Disks: []DomainDisk{
 					DomainDisk{
@@ -266,6 +283,10 @@ var domainTestData = []struct {
 			`  <name>test</name>`,
 			`  <title>Test</title>`,
 			`  <description>A test guest config</description>`,
+			`  <metadata>` +
+				`<myvalue xmlns='http://myapp.com/schemeas/my/1.0'><widget name='foo'/></myvalue>` +
+				`<myothervalue xmlns='http://myotherapp.com/schemeas/my/1.0'><gizmo name='foo'/></myothervalue>` +
+				`</metadata>`,
 			`  <devices>`,
 			`    <disk type="file" device="cdrom">`,
 			`      <driver name="qemu" type="qcow2"></driver>`,
@@ -347,6 +368,18 @@ var domainTestData = []struct {
 						},
 					},
 				},
+				TPMs: []DomainTPM{
+					DomainTPM{
+						Model: "tpm-tis",
+						Backend: &DomainTPMBackend{
+							Passthrough: &DomainTPMBackendPassthrough{
+								Device: &DomainTPMBackendDevice{
+									Path: "/dev/tpm0",
+								},
+							},
+						},
+					},
+				},
 				Graphics: []DomainGraphic{
 					DomainGraphic{
 						VNC: &DomainGraphicVNC{},
@@ -417,7 +450,7 @@ var domainTestData = []struct {
 								TLS:     "yes",
 							},
 						},
-						Protocol: &DomainSerialProtocol{
+						Protocol: &DomainChardevProtocol{
 							Type: "telnet",
 						},
 						Target: &DomainSerialTarget{
@@ -431,9 +464,10 @@ var domainTestData = []struct {
 							Pty: &DomainChardevSourcePty{},
 						},
 						Target: &DomainChannelTarget{
-							Type:  "virtio",
-							Name:  "org.redhat.spice",
-							State: "connected",
+							VirtIO: &DomainChannelTargetVirtIO{
+								Name:  "org.redhat.spice",
+								State: "connected",
+							},
 						},
 					},
 				},
@@ -455,6 +489,40 @@ var domainTestData = []struct {
 						},
 					},
 				},
+				RedirDevs: []DomainRedirDev{
+					DomainRedirDev{
+						Bus: "usb",
+						Source: &DomainChardevSource{
+							SpiceVMC: &DomainChardevSourceSpiceVMC{},
+						},
+						Address: &DomainAddress{
+							USB: &DomainAddressUSB{
+								Bus:  &redirBus,
+								Port: redirPort,
+							},
+						},
+					},
+				},
+				RedirFilters: []DomainRedirFilter{
+					DomainRedirFilter{
+						USB: []DomainRedirFilterUSB{
+							DomainRedirFilterUSB{
+								Class:   &redirfilterClass,
+								Product: &redirfilterProduct,
+								Vendor:  &redirfilterVendor,
+								Version: "1.10",
+								Allow:   "yes",
+							},
+							DomainRedirFilterUSB{
+								Version: "1.10",
+								Allow:   "no",
+							},
+							DomainRedirFilterUSB{
+								Allow: "yes",
+							},
+						},
+					},
+				},
 				RNGs: []DomainRNG{
 					DomainRNG{
 						Model: "virtio",
@@ -469,7 +537,7 @@ var domainTestData = []struct {
 										Path: "/dev/ttyS0",
 									},
 								},
-								Protocol: &DomainRNGProtocol{
+								Protocol: &DomainChardevProtocol{
 									Type: "raw",
 								},
 							},
@@ -525,6 +593,11 @@ var domainTestData = []struct {
 			`      <address type="usb" bus="0" port="1.1"></address>`,
 			`    </input>`,
 			`    <input type="keyboard" bus="ps2"></input>`,
+			`    <tpm model="tpm-tis">`,
+			`      <backend type="passthrough">`,
+			`        <device path="/dev/tpm0"></device>`,
+			`      </backend>`,
+			`    </tpm>`,
 			`    <graphics type="vnc"></graphics>`,
 			`    <sound model="ich6">`,
 			`      <codec type="duplex"></codec>`,
@@ -534,6 +607,14 @@ var domainTestData = []struct {
 			`      <model type="cirrus" heads="1" ram="4096" vram="8192" vgamem="256"></model>`,
 			`      <address type="pci" domain="0x0000" bus="0x00" slot="0x05" function="0x0"></address>`,
 			`    </video>`,
+			`    <redirdev type="spicevmc" bus="usb">`,
+			`      <address type="usb" bus="0" port="3"></address>`,
+			`    </redirdev>`,
+			`    <redirfilter>`,
+			`      <usbdev class="0x08" vendor="0x15e1" product="0x2007" version="1.10" allow="yes"></usbdev>`,
+			`      <usbdev version="1.10" allow="no"></usbdev>`,
+			`      <usbdev allow="yes"></usbdev>`,
+			`    </redirfilter>`,
 			`    <memballoon model="virtio">`,
 			`      <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"></address>`,
 			`    </memballoon>`,
@@ -656,50 +737,67 @@ var domainTestData = []struct {
 				InitGroup: "fred",
 				InitDir:   "/home/fred",
 			},
-			SysInfo: &DomainSysInfo{
-				Type: "smbios",
-				BIOS: &DomainSysInfoBIOS{
-					Entry: []DomainSysInfoEntry{
-						DomainSysInfoEntry{
-							Name:  "vendor",
-							Value: "vendor",
+			SysInfo: []DomainSysInfo{
+				DomainSysInfo{
+					SMBIOS: &DomainSysInfoSMBIOS{
+						BIOS: &DomainSysInfoBIOS{
+							Entry: []DomainSysInfoEntry{
+								DomainSysInfoEntry{
+									Name:  "vendor",
+									Value: "vendor",
+								},
+							},
+						},
+						System: &DomainSysInfoSystem{
+							Entry: []DomainSysInfoEntry{
+								DomainSysInfoEntry{
+									Name:  "manufacturer",
+									Value: "manufacturer",
+								},
+								DomainSysInfoEntry{
+									Name:  "product",
+									Value: "product",
+								},
+								DomainSysInfoEntry{
+									Name:  "version",
+									Value: "version",
+								},
+							},
+						},
+						BaseBoard: []DomainSysInfoBaseBoard{
+							DomainSysInfoBaseBoard{
+								Entry: []DomainSysInfoEntry{
+									DomainSysInfoEntry{
+										Name:  "manufacturer",
+										Value: "manufacturer",
+									},
+									DomainSysInfoEntry{
+										Name:  "product",
+										Value: "product",
+									},
+									DomainSysInfoEntry{
+										Name:  "version",
+										Value: "version",
+									},
+									DomainSysInfoEntry{
+										Name:  "serial",
+										Value: "serial",
+									},
+								},
+							},
 						},
 					},
 				},
-				System: &DomainSysInfoSystem{
-					Entry: []DomainSysInfoEntry{
-						DomainSysInfoEntry{
-							Name:  "manufacturer",
-							Value: "manufacturer",
-						},
-						DomainSysInfoEntry{
-							Name:  "product",
-							Value: "product",
-						},
-						DomainSysInfoEntry{
-							Name:  "version",
-							Value: "version",
-						},
-					},
-				},
-				BaseBoard: []DomainSysInfoBaseBoard{
-					DomainSysInfoBaseBoard{
+				DomainSysInfo{
+					FWCfg: &DomainSysInfoFWCfg{
 						Entry: []DomainSysInfoEntry{
 							DomainSysInfoEntry{
-								Name:  "manufacturer",
-								Value: "manufacturer",
+								Name:  "vendor",
+								Value: "vendor",
 							},
 							DomainSysInfoEntry{
-								Name:  "product",
-								Value: "product",
-							},
-							DomainSysInfoEntry{
-								Name:  "version",
-								Value: "version",
-							},
-							DomainSysInfoEntry{
-								Name:  "serial",
-								Value: "serial",
+								Name: "installer",
+								File: "/some/path.cfg",
 							},
 						},
 					},
@@ -708,7 +806,7 @@ var domainTestData = []struct {
 			Clock: &DomainClock{
 				Offset:     "variable",
 				Basis:      "utc",
-				Adjustment: 28794,
+				Adjustment: "28794",
 				TimeZone:   "Europe/Paris",
 				Timer: []DomainTimer{
 					DomainTimer{
@@ -759,6 +857,10 @@ var domainTestData = []struct {
 			`      <entry name="serial">serial</entry>`,
 			`    </baseBoard>`,
 			`  </sysinfo>`,
+			`  <sysinfo type="fwcfg">`,
+			`    <entry name="vendor">vendor</entry>`,
+			`    <entry name="installer" file="/some/path.cfg"></entry>`,
+			`  </sysinfo>`,
 			`  <os>`,
 			`    <type arch="x86_64" machine="pc">hvm</type>`,
 			`    <init>/bin/systemd</init>`,
@@ -783,6 +885,23 @@ var domainTestData = []struct {
 			`      <catchup threshold="123" slew="120" limit="10000"></catchup>`,
 			`    </timer>`,
 			`  </clock>`,
+			`</domain>`,
+		},
+	},
+	{
+		Object: &Domain{
+			Type: "kvm",
+			Name: "test",
+			Clock: &DomainClock{
+				Offset:     "variable",
+				Basis:      "utc",
+				Adjustment: "reset",
+			},
+		},
+		Expected: []string{
+			`<domain type="kvm">`,
+			`  <name>test</name>`,
+			`  <clock offset="variable" basis="utc" adjustment="reset"></clock>`,
 			`</domain>`,
 		},
 	},
@@ -994,7 +1113,7 @@ var domainTestData = []struct {
 			VCPU: &DomainVCPU{
 				Placement: "static",
 				CPUSet:    "1-4,^3,6",
-				Current:   "1",
+				Current:   1,
 				Value:     2,
 			},
 			VCPUs: &DomainVCPUs{
@@ -1076,7 +1195,36 @@ var domainTestData = []struct {
 				},
 				Numa: &DomainNuma{
 					[]DomainCell{
-						{ID: &cellID, CPUs: "0-3", Memory: "512000", Unit: "KiB", MemAccess: "private"},
+						{
+							ID:        &cellID0,
+							CPUs:      "0-1",
+							Memory:    512000,
+							Unit:      "KiB",
+							MemAccess: "private",
+							Distances: &DomainCellDistances{
+								Siblings: []DomainCellSibling{
+									DomainCellSibling{
+										ID:    1,
+										Value: 20,
+									},
+								},
+							},
+						},
+						{
+							ID:        &cellID1,
+							CPUs:      "2-3",
+							Memory:    512000,
+							Unit:      "KiB",
+							MemAccess: "private",
+							Distances: &DomainCellDistances{
+								Siblings: []DomainCellSibling{
+									DomainCellSibling{
+										ID:    0,
+										Value: 20,
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -1094,7 +1242,16 @@ var domainTestData = []struct {
 			`    <cache level="1" mode="emulate"></cache>`,
 			`    <feature policy="disable" name="lahf_lm"></feature>`,
 			`    <numa>`,
-			`      <cell id="0" cpus="0-3" memory="512000" unit="KiB" memAccess="private"></cell>`,
+			`      <cell id="0" cpus="0-1" memory="512000" unit="KiB" memAccess="private">`,
+			`        <distances>`,
+			`          <sibling id="1" value="20"></sibling>`,
+			`        </distances>`,
+			`      </cell>`,
+			`      <cell id="1" cpus="2-3" memory="512000" unit="KiB" memAccess="private">`,
+			`        <distances>`,
+			`          <sibling id="0" value="20"></sibling>`,
+			`        </distances>`,
+			`      </cell>`,
 			`    </numa>`,
 			`  </cpu>`,
 			`  <devices>`,
@@ -1141,6 +1298,41 @@ var domainTestData = []struct {
 			`      <target dev="vnet3"></target>`,
 			`      <model type="virtio"></model>`,
 			`      <alias name="net1"></alias>`,
+			`    </interface>`,
+			`  </devices>`,
+			`</domain>`,
+		},
+	},
+	{
+		Object: &Domain{
+			Type: "vmware",
+			Name: "test",
+			Devices: &DomainDeviceList{
+				Interfaces: []DomainInterface{
+					DomainInterface{
+						MAC: &DomainInterfaceMAC{
+							Address: "06:39:b4:00:00:46",
+						},
+						Model: &DomainInterfaceModel{
+							Type: "e1000",
+						},
+						Source: &DomainInterfaceSource{
+							Bridge: &DomainInterfaceSourceBridge{
+								Bridge: "",
+							},
+						},
+					},
+				},
+			},
+		},
+		Expected: []string{
+			`<domain type="vmware">`,
+			`  <name>test</name>`,
+			`  <devices>`,
+			`    <interface type="bridge">`,
+			`      <mac address="06:39:b4:00:00:46"></mac>`,
+			`      <source bridge=""></source>`,
+			`      <model type="e1000"></model>`,
 			`    </interface>`,
 			`  </devices>`,
 			`</domain>`,
@@ -1519,10 +1711,11 @@ var domainTestData = []struct {
 							Type: "virtio",
 						},
 						Source: &DomainInterfaceSource{
-							VHostUser: &DomainInterfaceSourceVHostUser{
-								Type: "unix",
-								Path: "/tmp/vhost0.sock",
-								Mode: "server",
+							VHostUser: &DomainChardevSource{
+								UNIX: &DomainChardevSourceUNIX{
+									Path: "/tmp/vhost0.sock",
+									Mode: "server",
+								},
 							},
 						},
 					},
@@ -1535,7 +1728,7 @@ var domainTestData = []struct {
 			`  <devices>`,
 			`    <interface type="vhostuser">`,
 			`      <mac address="52:54:00:39:97:ac"></mac>`,
-			`      <source type="unix" path="/tmp/vhost0.sock" mode="server"></source>`,
+			`      <source type="unix" mode="server" path="/tmp/vhost0.sock"></source>`,
 			`      <model type="virtio"></model>`,
 			`    </interface>`,
 			`  </devices>`,
@@ -1556,10 +1749,11 @@ var domainTestData = []struct {
 							Type: "virtio",
 						},
 						Source: &DomainInterfaceSource{
-							VHostUser: &DomainInterfaceSourceVHostUser{
-								Type: "unix",
-								Path: "/tmp/vhost0.sock",
-								Mode: "server",
+							VHostUser: &DomainChardevSource{
+								UNIX: &DomainChardevSourceUNIX{
+									Path: "/tmp/vhost0.sock",
+									Mode: "server",
+								},
 							},
 						},
 						Bandwidth: &DomainInterfaceBandwidth{
@@ -1582,7 +1776,7 @@ var domainTestData = []struct {
 			`  <devices>`,
 			`    <interface type="vhostuser">`,
 			`      <mac address="52:54:00:39:97:ac"></mac>`,
-			`      <source type="unix" path="/tmp/vhost0.sock" mode="server"></source>`,
+			`      <source type="unix" mode="server" path="/tmp/vhost0.sock"></source>`,
 			`      <model type="virtio"></model>`,
 			`      <bandwidth>`,
 			`        <inbound average="1000" burst="10000"></inbound>`,
@@ -1923,6 +2117,7 @@ var domainTestData = []struct {
 						EIM:         "on",
 						IntRemap:    "on",
 						CachingMode: "on",
+						AWBits:      48,
 					},
 				},
 			},
@@ -1932,9 +2127,36 @@ var domainTestData = []struct {
 			`  <name>test</name>`,
 			`  <devices>`,
 			`    <iommu model="intel">`,
-			`      <driver intremap="on" caching_mode="on" eim="on"></driver>`,
+			`      <driver intremap="on" caching_mode="on" eim="on" aw_bits="48"></driver>`,
 			`    </iommu>`,
 			`  </devices>`,
+			`</domain>`,
+		},
+	},
+	{
+		Object: &Domain{
+			Type: "kvm",
+			Name: "test",
+			Perf: &DomainPerf{
+				Events: []DomainPerfEvent{
+					DomainPerfEvent{
+						Name:    "cmt",
+						Enabled: "yes",
+					},
+					DomainPerfEvent{
+						Name:    "mbmt",
+						Enabled: "no",
+					},
+				},
+			},
+		},
+		Expected: []string{
+			`<domain type="kvm">`,
+			`  <name>test</name>`,
+			`  <perf>`,
+			`    <event name="cmt" enabled="yes"></event>`,
+			`    <event name="mbmt" enabled="no"></event>`,
+			`  </perf>`,
 			`</domain>`,
 		},
 	},
@@ -2047,6 +2269,21 @@ var domainTestData = []struct {
 			`    <shareipc type="pid" value="12345"></shareipc>`,
 			`    <shareuts type="name" value="container1"></shareuts>`,
 			`  </namespace>`,
+			`</domain>`,
+		},
+	},
+	{
+		Object: &Domain{
+			Type: "vmware",
+			Name: "test",
+			VMWareDataCenterPath: &DomainVMWareDataCenterPath{
+				Value: "folder1/folder2/datacenter1",
+			},
+		},
+		Expected: []string{
+			`<domain type="vmware">`,
+			`  <name>test</name>`,
+			`  <datacenterpath xmlns="http://libvirt.org/schemas/domain/vmware/1.0">folder1/folder2/datacenter1</datacenterpath>`,
 			`</domain>`,
 		},
 	},
@@ -2396,6 +2633,42 @@ var domainTestData = []struct {
 				Type: "qcow2",
 			},
 			Source: &DomainDiskSource{
+				NVME: &DomainDiskSourceNVME{
+					PCI: &DomainDiskSourceNVMEPCI{
+						Managed:   "yes",
+						Namespace: 15,
+						Address: &DomainAddressPCI{
+							Domain:   &nvmeAddr.Domain,
+							Bus:      &nvmeAddr.Bus,
+							Slot:     &nvmeAddr.Slot,
+							Function: &nvmeAddr.Function,
+						},
+					},
+				},
+			},
+			Target: &DomainDiskTarget{
+				Dev: "vda",
+				Bus: "virtio",
+			},
+		},
+		Expected: []string{
+			`<disk type="nvme" device="cdrom">`,
+			`  <driver name="qemu" type="qcow2"></driver>`,
+			`  <source type="pci" managed="yes" namespace="15">`,
+			`    <address domain="0x0000" bus="0x01" slot="0x03" function="0x0"></address>`,
+			`  </source>`,
+			`  <target dev="vda" bus="virtio"></target>`,
+			`</disk>`,
+		},
+	},
+	{
+		Object: &DomainDisk{
+			Device: "cdrom",
+			Driver: &DomainDiskDriver{
+				Name: "qemu",
+				Type: "qcow2",
+			},
+			Source: &DomainDiskSource{
 				File: &DomainDiskSourceFile{
 					File: "/var/lib/libvirt/images/demo.qcow2",
 				},
@@ -2492,6 +2765,9 @@ var domainTestData = []struct {
 			Target: &DomainSerialTarget{
 				Type: "isa",
 				Port: &serialPort,
+				Model: &DomainSerialTargetModel{
+					Name: "isa-serial",
+				},
 			},
 			Log: &DomainChardevLog{
 				File:   "/some/path",
@@ -2501,9 +2777,33 @@ var domainTestData = []struct {
 
 		Expected: []string{
 			`<serial type="pty">`,
-			`  <target type="isa" port="0"></target>`,
+			`  <target type="isa" port="0">`,
+			`    <model name="isa-serial"></model>`,
+			`  </target>`,
 			`  <log file="/some/path" append="on"></log>`,
 			`</serial>`,
+		},
+	},
+	{
+		Object: &DomainParallel{
+			Source: &DomainChardevSource{
+				Pty: &DomainChardevSourcePty{},
+			},
+			Target: &DomainParallelTarget{
+				Type: "isa",
+				Port: &parallelPort,
+			},
+			Log: &DomainChardevLog{
+				File:   "/some/path",
+				Append: "on",
+			},
+		},
+
+		Expected: []string{
+			`<parallel type="pty">`,
+			`  <target type="isa" port="0"></target>`,
+			`  <log file="/some/path" append="on"></log>`,
+			`</parallel>`,
 		},
 	},
 	{
@@ -2521,6 +2821,130 @@ var domainTestData = []struct {
 			`<console type="pty">`,
 			`  <target type="virtio" port="0"></target>`,
 			`</console>`,
+		},
+	},
+	{
+		Object: &DomainSmartcard{
+			Host: &DomainSmartcardHost{},
+			Address: &DomainAddress{
+				CCID: &DomainAddressCCID{
+					Controller: &smartcardController,
+					Slot:       &smartcardSlot,
+				},
+			},
+		},
+
+		Expected: []string{
+			`<smartcard mode="host">`,
+			`  <address type="ccid" controller="0" slot="7"></address>`,
+			`</smartcard>`,
+		},
+	},
+	{
+		Object: &DomainSmartcard{
+			Passthrough: &DomainChardevSource{
+				TCP: &DomainChardevSourceTCP{
+					Mode:    "connect",
+					Host:    "localhost",
+					Service: "12345",
+				},
+			},
+			Protocol: &DomainChardevProtocol{
+				Type: "raw",
+			},
+			Address: &DomainAddress{
+				CCID: &DomainAddressCCID{
+					Controller: &smartcardController,
+					Slot:       &smartcardSlot,
+				},
+			},
+		},
+
+		Expected: []string{
+			`<smartcard mode="passthrough" type="tcp">`,
+			`  <source mode="connect" host="localhost" service="12345"></source>`,
+			`  <protocol type="raw"></protocol>`,
+			`  <address type="ccid" controller="0" slot="7"></address>`,
+			`</smartcard>`,
+		},
+	},
+	{
+		Object: &DomainSmartcard{
+			HostCerts: []DomainSmartcardHostCert{
+				DomainSmartcardHostCert{
+					File: "/some/cert1",
+				},
+				DomainSmartcardHostCert{
+					File: "/some/cert2",
+				},
+				DomainSmartcardHostCert{
+					File: "/some/cert3",
+				},
+			},
+			Address: &DomainAddress{
+				CCID: &DomainAddressCCID{
+					Controller: &smartcardController,
+					Slot:       &smartcardSlot,
+				},
+			},
+		},
+
+		Expected: []string{
+			`<smartcard mode="host-certificates">`,
+			`  <certificate>/some/cert1</certificate>`,
+			`  <certificate>/some/cert2</certificate>`,
+			`  <certificate>/some/cert3</certificate>`,
+			`  <address type="ccid" controller="0" slot="7"></address>`,
+			`</smartcard>`,
+		},
+	},
+	{
+		Object: &DomainTPM{
+			Model: "tpm-tis",
+			Backend: &DomainTPMBackend{
+				Passthrough: &DomainTPMBackendPassthrough{
+					Device: &DomainTPMBackendDevice{
+						Path: "/dev/tpm0",
+					},
+				},
+			},
+		},
+
+		Expected: []string{
+			`<tpm model="tpm-tis">`,
+			`  <backend type="passthrough">`,
+			`    <device path="/dev/tpm0"></device>`,
+			`  </backend>`,
+			`</tpm>`,
+		},
+	},
+	{
+		Object: &DomainShmem{
+			Name: "demo",
+			Size: &DomainShmemSize{
+				Value: 1,
+				Unit:  "GiB",
+			},
+			Model: &DomainShmemModel{
+				Type: "ivshmem-doorbell",
+			},
+			Server: &DomainShmemServer{
+				Path: "/some/server",
+			},
+			MSI: &DomainShmemMSI{
+				Enabled:   "yes",
+				Vectors:   5,
+				IOEventFD: "yes",
+			},
+		},
+
+		Expected: []string{
+			`<shmem name="demo">`,
+			`  <size unit="GiB">1</size>`,
+			`  <model type="ivshmem-doorbell"></model>`,
+			`  <server path="/some/server"></server>`,
+			`  <msi enabled="yes" vectors="5" ioeventfd="yes"></msi>`,
+			`</shmem>`,
 		},
 	},
 	{
@@ -2543,6 +2967,9 @@ var domainTestData = []struct {
 	},
 	{
 		Object: &DomainVideo{
+			Driver: &DomainVideoDriver{
+				VGAConf: "io",
+			},
 			Model: DomainVideoModel{
 				Type:    "cirrus",
 				Heads:   1,
@@ -2553,6 +2980,7 @@ var domainTestData = []struct {
 				Primary: "yes",
 				Accel: &DomainVideoAccel{
 					Accel3D: "yes",
+					Accel2D: "no",
 				},
 			},
 			Address: &DomainAddress{
@@ -2569,8 +2997,9 @@ var domainTestData = []struct {
 		Expected: []string{
 			`<video>`,
 			`  <model type="cirrus" heads="1" ram="4096" vram="8192" vram64="8192" vgamem="256" primary="yes">`,
-			`    <acceleration accel3d="yes"></acceleration>`,
+			`    <acceleration accel3d="yes" accel2d="no"></acceleration>`,
 			`  </model>`,
+			`  <driver vgaconf="io"></driver>`,
 			`  <address type="pci" domain="0x0000" bus="0x00" slot="0x05" function="0x0" multifunction="on"></address>`,
 			`</video>`,
 		},
@@ -2581,15 +3010,107 @@ var domainTestData = []struct {
 				Pty: &DomainChardevSourcePty{},
 			},
 			Target: &DomainChannelTarget{
-				Type:  "virtio",
-				Name:  "org.redhat.spice",
-				State: "connected",
+				VirtIO: &DomainChannelTargetVirtIO{
+					Name:  "org.redhat.spice",
+					State: "connected",
+				},
 			},
 		},
 
 		Expected: []string{
 			`<channel type="pty">`,
 			`  <target type="virtio" name="org.redhat.spice" state="connected"></target>`,
+			`</channel>`,
+		},
+	},
+	{
+		Object: &DomainChannel{
+			Source: &DomainChardevSource{
+				Pty: &DomainChardevSourcePty{},
+			},
+			Target: &DomainChannelTarget{
+				Xen: &DomainChannelTargetXen{
+					Name:  "org.redhat.spice",
+					State: "connected",
+				},
+			},
+		},
+
+		Expected: []string{
+			`<channel type="pty">`,
+			`  <target type="xen" name="org.redhat.spice" state="connected"></target>`,
+			`</channel>`,
+		},
+	},
+	{
+		Object: &DomainRedirDev{
+			Bus: "usb",
+			Source: &DomainChardevSource{
+				SpiceVMC: &DomainChardevSourceSpiceVMC{},
+			},
+			Address: &DomainAddress{
+				USB: &DomainAddressUSB{
+					Bus:  &redirBus,
+					Port: redirPort,
+				},
+			},
+		},
+
+		Expected: []string{
+			`<redirdev type="spicevmc" bus="usb">`,
+			`  <address type="usb" bus="0" port="3"></address>`,
+			`</redirdev>`,
+		},
+	},
+	{
+		Object: &DomainRedirDev{
+			Bus: "usb",
+			Source: &DomainChardevSource{
+				TCP: &DomainChardevSourceTCP{
+					Mode:    "connect",
+					Host:    "localhost",
+					Service: "1234",
+				},
+			},
+			Protocol: &DomainChardevProtocol{
+				Type: "raw",
+			},
+			Boot: &DomainDeviceBoot{
+				Order: 1,
+			},
+			Address: &DomainAddress{
+				USB: &DomainAddressUSB{
+					Bus:  &redirBus,
+					Port: redirPort,
+				},
+			},
+		},
+
+		Expected: []string{
+			`<redirdev type="tcp" bus="usb">`,
+			`  <source mode="connect" host="localhost" service="1234"></source>`,
+			`  <protocol type="raw"></protocol>`,
+			`  <boot order="1"></boot>`,
+			`  <address type="usb" bus="0" port="3"></address>`,
+			`</redirdev>`,
+		},
+	},
+	{
+		Object: &DomainChannel{
+			Source: &DomainChardevSource{
+				Pty: &DomainChardevSourcePty{},
+			},
+			Target: &DomainChannelTarget{
+				GuestFWD: &DomainChannelTargetGuestFWD{
+					Address: "192.168.1.1",
+					Port:    "123",
+				},
+			},
+		},
+
+		Expected: []string{
+			`<channel type="pty">`,
+			`  <target type="guestfwd" address="192.168.1.1" port="123"></target>`,
 			`</channel>`,
 		},
 	},
@@ -2793,6 +3314,7 @@ var domainTestData = []struct {
 	},
 	{
 		Object: &DomainConsole{
+			TTY: "/dev/pts/3",
 			Source: &DomainChardevSource{
 				Pty: &DomainChardevSourcePty{
 					Path: "/dev/pts/3",
@@ -2801,7 +3323,7 @@ var domainTestData = []struct {
 		},
 
 		Expected: []string{
-			`<console type="pty">`,
+			`<console type="pty" tty="/dev/pts/3">`,
 			`  <source path="/dev/pts/3"></source>`,
 			`</console>`,
 		},
@@ -3319,6 +3841,32 @@ var domainTestData = []struct {
 			`</domain>`,
 		},
 	},
+	{
+		Object: &Domain{
+			Name: "demo",
+			Devices: &DomainDeviceList{
+				Graphics: []DomainGraphic{
+					DomainGraphic{SDL: &DomainGraphicSDL{}},
+					DomainGraphic{VNC: &DomainGraphicVNC{}},
+					DomainGraphic{RDP: &DomainGraphicRDP{}},
+					DomainGraphic{Desktop: &DomainGraphicDesktop{}},
+					DomainGraphic{Spice: &DomainGraphicSpice{}},
+				},
+			},
+		},
+		Expected: []string{
+			`<domain>`,
+			`  <name>demo</name>`,
+			`  <devices>`,
+			`    <graphics type="sdl"></graphics>`,
+			`    <graphics type="vnc"></graphics>`,
+			`    <graphics type="rdp"></graphics>`,
+			`    <graphics type="desktop"></graphics>`,
+			`    <graphics type="spice"></graphics>`,
+			`  </devices>`,
+			`</domain>`,
+		},
+	},
 }
 
 func TestDomain(t *testing.T) {
@@ -3340,7 +3888,7 @@ func TestDomain(t *testing.T) {
 
 		newdocobj, ok := newobj.Interface().(Document)
 		if !ok {
-			t.Fatal("Could not clone %s", newobj.Interface())
+			t.Fatalf("Could not clone %s", newobj.Interface())
 		}
 
 		err = newdocobj.Unmarshal(expect)

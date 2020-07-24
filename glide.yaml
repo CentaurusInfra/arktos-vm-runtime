@@ -26,9 +26,9 @@ import:
   subpackages:
   - difflib
 - package: github.com/libvirt/libvirt-go
-  version: c3209e4ba8b8dda65c85ca0ac04302e55895caf7
+  version: a0815d68d2c703ca2e64d61ba2079db03fa4f4fd
 - package: github.com/libvirt/libvirt-go-xml
-  version: 661c62056664441ce89e9224e1ce401b67fa0f07
+  version: 925dc82706c69a33eafba104f94a19cd374e5c85
 - package: github.com/jonboulle/clockwork
   version: bcac9884e7502bb2b474c0339d889cb981a2f27f
 - package: github.com/onsi/ginkgo

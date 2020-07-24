@@ -151,7 +151,6 @@ startRuntime() {
                 DOCKER_RUN_CMD="docker run --security-opt apparmor=${APPARMOR_PROFILE_LIBVIRTD}"
         fi
 	${DOCKER_RUN_CMD} --net=host --privileged --pid=host --uts=host --ipc=host --user=root \
-	--security-opt apparmor=${APPARMOR_PROFILE_LIBVIRTD} \
 	--name ${LIBVIRT_CONTAINER_NAME} \
 	--mount type=bind,src=/boot,dst=/boot,readonly \
 	--mount type=bind,src=/dev,dst=/dev \
@@ -174,7 +173,6 @@ startRuntime() {
                 DOCKER_RUN_CMD="docker run --security-opt apparmor=${APPARMOR_PROFILE_VIRTLET}"
         fi      
 	${DOCKER_RUN_CMD} --net=host --privileged --pid=host --uts=host --ipc=host --user=root \
-	--security-opt apparmor=${APPARMOR_PROFILE_VIRTLET} \
 	--name ${VIRTLET_CONTAINER_NAME} \
 	--env VIRTLET_LOGLEVEL=${VIRTLET_LOGLEVEL} \
         --env VIRTLET_DISABLE_KVM=${VIRTLET_DISABLE_KVM} \
