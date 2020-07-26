@@ -11,7 +11,7 @@ RUN echo deb-src http://archive.ubuntu.com/ubuntu/ bionic main universe restrict
 RUN apt-get -y update && apt-get -y upgrade && \
     apt-get -y build-dep libguestfs && \
     apt-get -y build-dep supermin && \
-    apt-get install -y apt-utils git libjansson-dev libhivex-ocaml-dev libguestfs-tools 
+    apt-get install -y apt-utils curl git libjansson-dev libhivex-ocaml-dev libguestfs-tools 
 
 # build libvirt 6.5.0
 RUN apt-get install -y build-essential libsasl2-dev libdevmapper-dev libgnutls28-dev \
@@ -30,22 +30,23 @@ RUN apt-get install -y build-essential libsasl2-dev libdevmapper-dev libgnutls28
     make clean
 
 # build qemu 5.0.0
-RUN apt-get build-dep -y qemu && \
+RUN apt-get -y update && \
+    apt-get build-dep -y qemu && \
     apt-get install -y checkinstall && \
     curl -O https://download.qemu.org/qemu-5.0.0.tar.xz && \
-    tar -xf qemu-5.0.0.tar.xz && \
+    tar -xvf qemu-5.0.0.tar.xz && \
     cd qemu-5.0.0 && \
-    ./configure && \
+    ./configure --target-list=x86_64-softmmu,x86_64-linux-user --cpu=x86_64 && \
     make && \
-    checkinstall make install && \
+    checkinstall  --nodoc --backup=no make install && \
     apt-get install ./*.deb && \
     make clean
 
 RUN apt-get install -y openssl scrub syslinux \
-                       apt-utils netbase iptables ebtables vncsnapshot \
+                       netbase iptables ebtables vncsnapshot \
                        socat netcat-openbsd \
                        acl attr binutils bsdmainutils btrfs-tools \
-                       bzip2 cpio cryptsetup curl dosfstools extlinux \
+                       bzip2 cpio cryptsetup dosfstools extlinux \
                        file gawk gdisk genisoimage iproute2 \
                        isc-dhcp-client kmod less libaugeas0 \
                        bridge-utils \

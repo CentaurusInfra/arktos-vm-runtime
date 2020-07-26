@@ -27,7 +27,7 @@
 - name: 'domain conn: DefineDomain'
   value: |-
     <domain type="kvm">
-      <name>virtlet-231700d5-c9a6-container1</name>
+      <name>arktosRT--231700d5-c9a6-container1</name>
       <uuid>231700d5-c9a6-5a49-738d-99a954c51550</uuid>
       <maxMemory unit="KiB" slots="16">2097152</maxMemory>
       <memory unit="KiB">1048576</memory>
@@ -88,7 +88,7 @@
     </domain>
 - name: 'domain conn: ListDomains'
   value:
-  - virtlet-231700d5-c9a6-container1
+  - arktosRT--231700d5-c9a6-container1
 - name: container list after the container is created
   value:
   - Config:
@@ -142,8 +142,8 @@
     Name: container1
     StartedAt: 0
     State: 0
-- name: 'domain conn: virtlet-231700d5-c9a6-container1: Create'
-- name: 'domain conn: virtlet-231700d5-c9a6-container1: iso image'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container1: Create'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container1: iso image'
   value:
     meta-data: '{"instance-id":"testName_0.default","local-hostname":"testName_0"}'
     network-config: |
@@ -203,7 +203,7 @@
     Name: container1
     StartedAt: 1496175541000000000
     State: 1
-- name: 'domain conn: virtlet-231700d5-c9a6-container1: Shutdown'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container1: Shutdown'
 - name: 'storage: volumes: RemoveVolumeByName'
   value: virtlet_root_231700d5-c9a6-5a49-738d-99a954c51550
 - name: container info after the container is stopped
@@ -259,7 +259,7 @@
     Name: container1
     StartedAt: 1496175541000000000
     State: 2
-- name: 'domain conn: virtlet-231700d5-c9a6-container1: Undefine'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container1: Undefine'
 - name: 'storage: volumes: RemoveVolumeByName'
   value: virtlet_root_231700d5-c9a6-5a49-738d-99a954c51550
 - name: 'domain conn: ListDomains'

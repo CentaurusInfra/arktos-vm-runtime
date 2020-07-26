@@ -153,7 +153,7 @@
 - name: 'domain conn: DefineDomain'
   value: |-
     <domain type="kvm">
-      <name>virtlet-231700d5-c9a6-container-for-testName_0</name>
+      <name>arktosRT--231700d5-c9a6-container-for-testName_0</name>
       <uuid>231700d5-c9a6-5a49-738d-99a954c51550</uuid>
       <maxMemory unit="KiB" slots="16">2097152</maxMemory>
       <memory unit="KiB">1048576</memory>
@@ -219,7 +219,7 @@
   value: {}
 - name: 'domain conn: ListDomains'
   value:
-  - virtlet-231700d5-c9a6-container-for-testName_0
+  - arktosRT--231700d5-c9a6-container-for-testName_0
 - name: 'leave: ListContainers'
   value:
     containers:
@@ -264,8 +264,8 @@
 - name: 'enter: StartContainer'
   value:
     container_id: 231700d5-c9a6-5a49-738d-99a954c51550
-- name: 'domain conn: virtlet-231700d5-c9a6-container-for-testName_0: Create'
-- name: 'domain conn: virtlet-231700d5-c9a6-container-for-testName_0: iso image'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container-for-testName_0: Create'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container-for-testName_0: iso image'
   value:
     meta-data: '{"instance-id":"testName_0.default","local-hostname":"testName_0"}'
     network-config: |
@@ -340,7 +340,7 @@
   value: {}
 - name: 'domain conn: ListDomains'
   value:
-  - virtlet-231700d5-c9a6-container-for-testName_0
+  - arktosRT--231700d5-c9a6-container-for-testName_0
 - name: 'leave: ListContainerStats'
   value:
     stats:
@@ -459,7 +459,7 @@
 - name: 'domain conn: DefineDomain'
   value: |-
     <domain type="kvm">
-      <name>virtlet-6b94d9a7-e22a-container-for-testName_1</name>
+      <name>arktosRT--6b94d9a7-e22a-container-for-testName_1</name>
       <uuid>6b94d9a7-e22a-5d08-65ee-16b9b1e07ab0</uuid>
       <maxMemory unit="KiB" slots="16">2097152</maxMemory>
       <memory unit="KiB">1048576</memory>
@@ -554,8 +554,8 @@
   value: {}
 - name: 'domain conn: ListDomains'
   value:
-  - virtlet-231700d5-c9a6-container-for-testName_0
-  - virtlet-6b94d9a7-e22a-container-for-testName_1
+  - arktosRT--231700d5-c9a6-container-for-testName_0
+  - arktosRT--6b94d9a7-e22a-container-for-testName_1
 - name: 'leave: ListContainers'
   value:
     containers:
@@ -616,8 +616,8 @@
 - name: 'enter: StartContainer'
   value:
     container_id: 6b94d9a7-e22a-5d08-65ee-16b9b1e07ab0
-- name: 'domain conn: virtlet-6b94d9a7-e22a-container-for-testName_1: Create'
-- name: 'domain conn: virtlet-6b94d9a7-e22a-container-for-testName_1: iso image'
+- name: 'domain conn: arktosRT--6b94d9a7-e22a-container-for-testName_1: Create'
+- name: 'domain conn: arktosRT--6b94d9a7-e22a-container-for-testName_1: iso image'
   value:
     meta-data: '{"instance-id":"testName_1.default","local-hostname":"testName_1"}'
     network-config: |
@@ -667,7 +667,7 @@
 - name: 'enter: StopContainer'
   value:
     container_id: 231700d5-c9a6-5a49-738d-99a954c51550
-- name: 'domain conn: virtlet-231700d5-c9a6-container-for-testName_0: Destroy'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container-for-testName_0: Destroy'
 - name: 'storage: volumes: RemoveVolumeByName'
   value: virtlet_root_231700d5-c9a6-5a49-738d-99a954c51550
 - name: 'leave: StopContainer'
@@ -675,7 +675,7 @@
 - name: 'enter: StopContainer'
   value:
     container_id: 6b94d9a7-e22a-5d08-65ee-16b9b1e07ab0
-- name: 'domain conn: virtlet-6b94d9a7-e22a-container-for-testName_1: Destroy'
+- name: 'domain conn: arktosRT--6b94d9a7-e22a-container-for-testName_1: Destroy'
 - name: 'storage: volumes: RemoveVolumeByName'
   value: virtlet_root_6b94d9a7-e22a-5d08-65ee-16b9b1e07ab0
 - name: 'leave: StopContainer'
@@ -683,7 +683,7 @@
 - name: 'enter: StopContainer'
   value:
     container_id: 6b94d9a7-e22a-5d08-65ee-16b9b1e07ab0
-- name: 'domain conn: virtlet-6b94d9a7-e22a-container-for-testName_1: Destroy'
+- name: 'domain conn: arktosRT--6b94d9a7-e22a-container-for-testName_1: Destroy'
 - name: 'storage: volumes: RemoveVolumeByName'
   value: virtlet_root_6b94d9a7-e22a-5d08-65ee-16b9b1e07ab0
 - name: 'leave: StopContainer'
@@ -692,8 +692,8 @@
   value: {}
 - name: 'domain conn: ListDomains'
   value:
-  - virtlet-231700d5-c9a6-container-for-testName_0
-  - virtlet-6b94d9a7-e22a-container-for-testName_1
+  - arktosRT--231700d5-c9a6-container-for-testName_0
+  - arktosRT--6b94d9a7-e22a-container-for-testName_1
 - name: 'leave: ListContainers'
   value:
     containers:
@@ -757,7 +757,7 @@
 - name: 'enter: RemoveContainer'
   value:
     container_id: 231700d5-c9a6-5a49-738d-99a954c51550
-- name: 'domain conn: virtlet-231700d5-c9a6-container-for-testName_0: Undefine'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container-for-testName_0: Undefine'
 - name: 'storage: volumes: RemoveVolumeByName'
   value: virtlet_root_231700d5-c9a6-5a49-738d-99a954c51550
 - name: 'imageStore: GC'
@@ -768,7 +768,7 @@
 - name: 'enter: RemoveContainer'
   value:
     container_id: 6b94d9a7-e22a-5d08-65ee-16b9b1e07ab0
-- name: 'domain conn: virtlet-6b94d9a7-e22a-container-for-testName_1: Undefine'
+- name: 'domain conn: arktosRT--6b94d9a7-e22a-container-for-testName_1: Undefine'
 - name: 'storage: volumes: RemoveVolumeByName'
   value: virtlet_root_6b94d9a7-e22a-5d08-65ee-16b9b1e07ab0
 - name: 'imageStore: GC'

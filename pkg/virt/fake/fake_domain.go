@@ -332,7 +332,7 @@ func (d *FakeDomain) SetVcpus(vcpus uint) error {
 }
 
 // Update domain current memory
-func (d *FakeDomain) SetCurrentMemory(memInKib uint64) error {
+func (d *FakeDomain) AdjustDomainMemory(memChangeInKib int64) error {
 	return fmt.Errorf("not implenmented")
 }
 

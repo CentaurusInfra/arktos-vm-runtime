@@ -25,7 +25,7 @@
 - name: 'domain conn: DefineDomain'
   value: |-
     <domain type="kvm">
-      <name>virtlet-231700d5-c9a6-container1</name>
+      <name>arktosRT--231700d5-c9a6-container1</name>
       <uuid>231700d5-c9a6-5a49-738d-99a954c51550</uuid>
       <maxMemory unit="KiB" slots="16">2097152</maxMemory>
       <memory unit="KiB">1048576</memory>
@@ -84,8 +84,8 @@
         <env name="VIRTLET_CONTAINER_LOG_PATH" value="/var/log/pods/69eec606-0493-5825-73a4-c5e0c0236155/container1_42.log"></env>
       </commandline>
     </domain>
-- name: 'domain conn: virtlet-231700d5-c9a6-container1: Create'
-- name: 'domain conn: virtlet-231700d5-c9a6-container1: iso image'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container1: Create'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container1: iso image'
   value:
     meta-data: '{"instance-id":"testName_0.default","local-hostname":"testName_0"}'
     network-config: |
@@ -93,16 +93,16 @@
     user-data: |
       #cloud-config
 - name: invoking StopContainer()
-- name: 'domain conn: virtlet-231700d5-c9a6-container1: Shutdown'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container1: Shutdown'
   value:
     ignored: true
-- name: 'domain conn: virtlet-231700d5-c9a6-container1: Shutdown'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container1: Shutdown'
   value:
     ignored: true
-- name: 'domain conn: virtlet-231700d5-c9a6-container1: Shutdown'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container1: Shutdown'
   value:
     ignored: true
-- name: 'domain conn: virtlet-231700d5-c9a6-container1: Destroy'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container1: Destroy'
 - name: 'storage: volumes: RemoveVolumeByName'
   value: virtlet_root_231700d5-c9a6-5a49-738d-99a954c51550
 - name: container info after the container is stopped
@@ -159,6 +159,6 @@
     StartedAt: 1496175541000000000
     State: 2
 - name: invoking RemoveContainer()
-- name: 'domain conn: virtlet-231700d5-c9a6-container1: Undefine'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container1: Undefine'
 - name: 'storage: volumes: RemoveVolumeByName'
   value: virtlet_root_231700d5-c9a6-5a49-738d-99a954c51550

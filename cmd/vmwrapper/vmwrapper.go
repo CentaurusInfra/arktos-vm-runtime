@@ -35,7 +35,8 @@ import (
 
 const (
 	fdSocketPath    = "/var/lib/virtlet/tapfdserver.sock"
-	defaultEmulator = "/usr/bin/qemu-system-x86_64" // FIXME
+	// default to the qemu built in vm runtime
+	defaultEmulator = "/usr/local/bin/qemu-system-x86_64" 
 	vmsProcFile     = "/var/lib/virtlet/vms.procfile"
 )
 
