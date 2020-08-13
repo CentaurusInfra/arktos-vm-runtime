@@ -49,14 +49,15 @@ const (
 	//GiValue = 1073741824
 	// default unit in the domain is Kib
 	defaultLibvirtDomainMemoryUnitValue = KiValue
-
+	memorySlots                         = 16
 	// default to 1Gi
 	defaultMemory     = 1048576
 	defaultMemoryUnit = "KiB"
 	defaultDomainType = "kvm"
 	defaultEmulator   = "/usr/bin/kvm"
 	noKvmDomainType   = "qemu"
-	noKvmEmulator     = "/usr/bin/qemu-system-x86_64"
+	// use the qemu binary built in vm runtime
+	noKvmEmulator = "/usr/local/bin/qemu-system-x86_64"
 
 	domainStartCheckInterval      = 250 * time.Millisecond
 	domainStartTimeout            = 10 * time.Second
@@ -140,7 +141,7 @@ func (ds *domainSettings) createDomain(config *types.VMConfig) *libvirtxml.Domai
 		UUID:          ds.domainUUID,
 		Memory:        &libvirtxml.DomainMemory{Value: uint(ds.memory), Unit: defaultMemoryUnit},
 		CurrentMemory: &libvirtxml.DomainCurrentMemory{Value: uint(ds.memory), Unit: defaultMemoryUnit},
-		MaximumMemory: &libvirtxml.DomainMaxMemory{Value: getMaxMemoryInKiB(ds), Unit: defaultMemoryUnit, Slots: 16},
+		MaximumMemory: &libvirtxml.DomainMaxMemory{Value: getMaxMemoryInKiB(ds), Unit: defaultMemoryUnit, Slots: memorySlots},
 		VCPU: &libvirtxml.DomainVCPU{
 			Current: ds.vcpuNum,
 			Value:   getMaxVcpus(ds),
@@ -384,7 +385,7 @@ func (v *VirtualizationTool) CreateContainer(config *types.VMConfig, netFdKey st
 		domainUUID: domainUUID,
 		// Note: using only first 13 characters because libvirt has an issue with handling
 		// long path names for qemu monitor socket
-		domainName:  "virtlet-" + domainUUID[:13] + "-" + config.Name,
+		domainName:  "arktosRT--" + domainUUID[:13] + "-" + config.Name,
 		netFdKey:    netFdKey,
 		vcpuNum:     uint(config.ParsedAnnotations.VCPUCount),
 		memory:      int(config.MemoryLimitInBytes / KiValue),
@@ -1091,35 +1092,27 @@ func (v *VirtualizationTool) UpdateDomainResources(vmID string, lcr *kubeapi.Lin
 		return err
 	}
 
-	// update the vcpu count
-	domainXml, err := domain.XML()
+	var cpuUpdated bool
+	var memUpdated bool
+
+	// TODO: enable this after CPU bug fix
+	//glog.V(4).Infof("Update Domain CPU configuration")
+	//err = v.updateDomainCPUs(domain, lcr)
+	//if err != nil {
+	//	glog.V(4).Infof("Update Domain CPU configuration failed with error: %v", err)
+	//	return err
+	//}
+	//cpuUpdated = true
+
+	glog.V(4).Infof("Update Domain Memory configuration")
+	err = v.updateDomainMemory(domain, lcr)
 	if err != nil {
+		glog.V(4).Infof("Update Domain Memory configuration failed with error: %v", err)
 		return err
 	}
+	memUpdated = true
 
-	var cpuUpdated bool
-	//var memUpated bool
-
-	// Update vcpus if needed, this is the reversed calculation from the Agent side
-	requestedVcpus := v.getVcpusInRequest(lcr)
-	glog.V(5).Infof("Update domain vCPU number: %v -> %v", domainXml.VCPU.Value, requestedVcpus)
-	if requestedVcpus != int64(domainXml.VCPU.Value) {
-		err := domain.SetVcpus(uint(requestedVcpus))
-		if err != nil {
-			return err
-		}
-		cpuUpdated = true
-	}
-
-	// Update the memory
-	currentMemory := domainXml.CurrentMemory.Value
-	newmemory := lcr.MemoryLimitInBytes / int64(defaultLibvirtDomainMemoryUnitValue)
-
-	if newmemory != int64(currentMemory) {
-		domain.SetCurrentMemory(uint64(newmemory))
-	}
-
-	// TODO: Update the vm config and metadata stored in Arktos-vm-runtime metadata
+	// Update the vm config and metadata stored in Arktos-vm-runtime metadata
 	containerInfo, err := v.metadataStore.Container(vmID).Retrieve()
 	if err != nil {
 		return err
@@ -1131,18 +1124,73 @@ func (v *VirtualizationTool) UpdateDomainResources(vmID string, lcr *kubeapi.Lin
 		containerInfo.Config.CPUPeriod = lcr.CpuPeriod
 	}
 
-	//if memUpdated {
-	//	containerInfo.Config.MemoryLimitInBytes = *lcr.Memory.Limit
-	//}
-	//
+	if memUpdated {
+		containerInfo.Config.MemoryLimitInBytes = lcr.MemoryLimitInBytes
+	}
+
+	glog.V(4).Infof("Update runtime metadata with config: %v", containerInfo.Config)
 	err = v.metadataStore.Container(vmID).Save(
 		func(_ *types.ContainerInfo) (*types.ContainerInfo, error) {
 			return containerInfo, nil
 		})
 
 	if err != nil {
-		glog.Errorf("failed to save containerInfo for container: %v", vmID)
+		glog.Errorf("Failed to save containerInfo for container: %v", vmID)
 		return err
+	}
+
+	return nil
+}
+
+// Update the domain vcpus if needed, this is the reversed calculation from the Agent side
+func (v *VirtualizationTool) updateDomainCPUs(domain virt.Domain, lcr *kubeapi.LinuxContainerResources) error {
+	domainXml, err := domain.XML()
+	if err != nil {
+		return err
+	}
+
+	newVcpus := v.getVcpusInRequest(lcr)
+	glog.V(4).Infof("CPU Info: current CPU number: %v, newCPU number: %v. Max CPU Number: %v",
+		domainXml.VCPU.Current, newVcpus, domainXml.VCPU.Value)
+	if newVcpus > int64(domainXml.VCPU.Value) {
+		return fmt.Errorf("requested CPUs exceeds Max CPU configuration for the VM")
+	}
+
+	if newVcpus != int64(domainXml.VCPU.Current) {
+		glog.V(4).Infof("Update domain vCPU number: %v -> %v", domainXml.VCPU.Current, newVcpus)
+		err := domain.SetVcpus(uint(newVcpus))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Update the domain memory
+func (v *VirtualizationTool) updateDomainMemory(domain virt.Domain, lcr *kubeapi.LinuxContainerResources) error {
+	domainXml, err := domain.XML()
+	if err != nil {
+		return err
+	}
+
+	// memory in KiBs in domain xml, so convert to KiB first
+	currentMemory := int64(domainXml.CurrentMemory.Value)
+	maxMemory := int64(domainXml.MaximumMemory.Value)
+	newMemory := lcr.MemoryLimitInBytes / int64(defaultLibvirtDomainMemoryUnitValue)
+
+	glog.V(4).Infof("Memory Info in KiB: current memory: %v, newMemory: %v. Max memory: %v",
+		currentMemory, newMemory, maxMemory)
+	if newMemory > maxMemory {
+		return fmt.Errorf("requested memory exceeds Max Memory configuration for the VM")
+	}
+
+	if newMemory != int64(currentMemory) {
+		glog.V(4).Infof("Update domain memory in KiB: %v -> %v", currentMemory, newMemory)
+		err := domain.AdjustDomainMemory(newMemory - currentMemory)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -1155,16 +1203,17 @@ func (v *VirtualizationTool) UpdateDomainResources(vmID string, lcr *kubeapi.Lin
 func (v *VirtualizationTool) SyncContainerInfoWithLibvirtDomain(vmID string) (*types.ContainerInfo, error) {
 	glog.V(4).Infof("Sync vm config with libvirt domain settings for VM: %v", vmID)
 
-	mem, memUnit, cpuShares, cpuQuota, cpuPeriod, _, err := v.GetDomainConfigredResources(vmID)
+	mem, memUnit, cpuShares, cpuQuota, cpuPeriod, vcpus, err := v.GetDomainConfigredResources(vmID)
 	if err != nil {
 		return nil, err
 	}
 
 	if memUnit != defaultMemoryUnit && memUnit != "K" {
-		glog.V(5).Infof("domain info: memory: %v, memoryUnit: %v, cpuShares: %v, cpuQuota: %v, cpuPeriod: %v",
-			mem, memUnit, cpuShares, cpuQuota, cpuPeriod)
 		return nil, fmt.Errorf("unexpected Domain MemoryUnit: %v", memUnit)
 	}
+
+	glog.V(4).Infof("domain info memory in KiB: memory: %v, memoryUnit: %v, cpuShares: %v, cpuQuota: %v, cpuPeriod: %v, vcpus: %v",
+		mem, memUnit, cpuShares, cpuQuota, cpuPeriod, vcpus)
 
 	containerInfo, err := v.metadataStore.Container(vmID).Retrieve()
 	if err != nil {
@@ -1173,34 +1222,45 @@ func (v *VirtualizationTool) SyncContainerInfoWithLibvirtDomain(vmID string) (*t
 
 	configuredMem := containerInfo.Config.MemoryLimitInBytes / KiValue
 
+	glog.V(4).Infof("Runtime metadata config Memory in KiB: %v, CPUShares: %v, CPUQuota: %v, CPUPeriod: %v",
+		configuredMem, containerInfo.Config.CPUShares, containerInfo.Config.CPUQuota, containerInfo.Config.CPUPeriod)
+
 	needSync := false
 
 	// always compare with the bigger memUnit to void false positive
 	// due to reduced precision lose errors in bytes-mib conversions
 	if configuredMem != mem {
+		glog.V(4).Infof("Memory not synced")
 		containerInfo.Config.MemoryLimitInBytes = mem * KiValue
 		needSync = true
 	}
 
 	if containerInfo.Config.CPUPeriod != cpuPeriod {
+		glog.V(4).Infof("CPUPeriod not synced")
 		containerInfo.Config.CPUPeriod = cpuPeriod
 		needSync = true
 	}
 
-	if containerInfo.Config.CPUQuota != cpuQuota {
+	// libvirt domain's CPUQuota is for per each vcpu
+	// so when comparing the quota from the linux resource in request, need to be multiplied by the vcpus
+	if containerInfo.Config.CPUQuota != cpuQuota*vcpus {
+		glog.V(4).Infof("CPUQuota not synced")
 		containerInfo.Config.CPUQuota = cpuQuota
 		needSync = true
 	}
 
 	if containerInfo.Config.CPUShares != cpuShares {
+		glog.V(4).Infof("CPUShares not synced")
 		containerInfo.Config.CPUShares = cpuShares
 		needSync = true
 	}
 
 	if !needSync {
+		glog.V(4).Infof("All resource are in sync, return")
 		return containerInfo, nil
 	}
 
+	glog.V(4).Infof("Update runtime metadata to sync with domain configurations. new metadata config: %v", containerInfo.Config)
 	err = v.metadataStore.Container(vmID).Save(
 		func(_ *types.ContainerInfo) (*types.ContainerInfo, error) {
 			return containerInfo, nil
@@ -1215,7 +1275,7 @@ func (v *VirtualizationTool) SyncContainerInfoWithLibvirtDomain(vmID string) (*t
 
 }
 
-func (v *VirtualizationTool) GetDomainConfigredResources(vmID string) (int64, string, int64, int64, int64, int, error) {
+func (v *VirtualizationTool) GetDomainConfigredResources(vmID string) (int64, string, int64, int64, int64, int64, error) {
 	domain, err := v.domainConn.LookupDomainByUUIDString(vmID)
 	if err != nil {
 		return 0, "", 0, 0, 0, 0, err
@@ -1233,7 +1293,7 @@ func (v *VirtualizationTool) GetDomainConfigredResources(vmID string) (int64, st
 	cpuQuotas := domainXml.CPUTune.Quota.Value
 	cpuPeriod := domainXml.CPUTune.Period.Value
 	vCpus := domainXml.VCPU.Current
-	return int64(mem), memUnit, int64(cpuShares), int64(cpuQuotas), int64(cpuPeriod), int(vCpus), nil
+	return int64(mem), memUnit, int64(cpuShares), int64(cpuQuotas), int64(cpuPeriod), int64(vCpus), nil
 
 }
 

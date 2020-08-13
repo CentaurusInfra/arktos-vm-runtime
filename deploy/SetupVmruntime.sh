@@ -56,6 +56,7 @@ cleanup() {
 	echo "Delete vm runtime meta data files"
 	rm -f -r /var/lib/virtlet/
 	rm -f -r /var/log/virtlet/
+	rm -f /var/run/libvirt/libvirt-sock
 }
 
 downloadRuntimeDeploymentFiles() {

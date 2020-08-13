@@ -25,7 +25,7 @@
 - name: 'domain conn: DefineDomain'
   value: |-
     <domain type="kvm">
-      <name>virtlet-231700d5-c9a6-container1</name>
+      <name>arktosRT--231700d5-c9a6-container1</name>
       <uuid>231700d5-c9a6-5a49-738d-99a954c51550</uuid>
       <maxMemory unit="KiB" slots="16">2097152</maxMemory>
       <memory unit="KiB">1048576</memory>
@@ -99,11 +99,11 @@
   - /sys/fs/cgroup/cpuset/somepath/in/cgroups/emulator/cpuset.cpus
   - "42"
 - name: Calling setting cpuset for domain definition
-- name: 'domain conn: virtlet-231700d5-c9a6-container1: Undefine'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container1: Undefine'
 - name: 'domain conn: DefineDomain'
   value: |-
     <domain type="kvm">
-      <name>virtlet-231700d5-c9a6-container1</name>
+      <name>arktosRT--231700d5-c9a6-container1</name>
       <uuid>231700d5-c9a6-5a49-738d-99a954c51550</uuid>
       <maxMemory unit="KiB" slots="16">2097152</maxMemory>
       <memory unit="KiB">1048576</memory>
@@ -164,6 +164,6 @@
       </commandline>
     </domain>
 - name: Invoking RemoveContainer()
-- name: 'domain conn: virtlet-231700d5-c9a6-container1: Undefine'
+- name: 'domain conn: arktosRT--231700d5-c9a6-container1: Undefine'
 - name: 'storage: volumes: RemoveVolumeByName'
   value: virtlet_root_231700d5-c9a6-5a49-738d-99a954c51550

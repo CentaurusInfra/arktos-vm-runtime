@@ -117,8 +117,8 @@ type Domain interface {
 	CreateSnapshot(string) error
 	// RestoreToSnapshot restores current domain to the specified snapshot
 	RestoreToSnapshot(string) error
-	// Update vcpu for a give domain
+	// Update vcpus for a give domain
 	SetVcpus(uint) error
-	// Update current memory for a given domain
-	SetCurrentMemory(uint64) error
+	// Update the domain memory with request to scale up or scale down the VM
+	AdjustDomainMemory(int64) error
 }

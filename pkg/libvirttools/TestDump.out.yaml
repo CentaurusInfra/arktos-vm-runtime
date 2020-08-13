@@ -1,8 +1,8 @@
 children:
-  domain-virtlet-231700d5-c9a6-container1:
+  domain-arktosRT--231700d5-c9a6-container1:
     data: |-
       <domain type="kvm">
-        <name>virtlet-231700d5-c9a6-container1</name>
+        <name>arktosRT--231700d5-c9a6-container1</name>
         <uuid>231700d5-c9a6-5a49-738d-99a954c51550</uuid>
         <maxMemory unit="KiB" slots="16">2097152</maxMemory>
         <memory unit="KiB">1048576</memory>
@@ -63,7 +63,7 @@ children:
       </domain>
     ext: xml
     isdir: false
-    name: domain-virtlet-231700d5-c9a6-container1
+    name: domain-arktosRT--231700d5-c9a6-container1
   pool-volumes:
     data: |-
       <pool type="dir">

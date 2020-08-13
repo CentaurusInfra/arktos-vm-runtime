@@ -22,6 +22,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/libvirt/libvirt-go"
 	"github.com/libvirt/libvirt-go-xml"
+	"math"
 
 	"github.com/Mirantis/virtlet/pkg/virt"
 )
@@ -29,6 +30,18 @@ import (
 type libvirtDomainConnection struct {
 	conn libvirtConnection
 }
+
+// TODO: runtime issue: https://github.com/futurewei-cloud/arktos-vm-runtime/issues/50
+//       multiple sizes of devices, and, numa node setting
+// default mem chip size set to 512 MiB
+const memoryDeviceSizeInKiB = 512 * 1024
+
+const memoryDeviceDefinition = `<memory model='dimm'>
+							<target>
+								<size unit='MiB'>512</size>
+								<node>0</node>
+							</target>
+						</memory>`
 
 const snapshotXMLTemplate = `<domainsnapshot>
   								<name>%s</name>
@@ -276,9 +289,61 @@ func (domain *libvirtDomain) SetVcpus(vcpus uint) error {
 	return domain.d.SetVcpusFlags(vcpus, libvirt.DOMAIN_VCPU_CONFIG|libvirt.DOMAIN_VCPU_LIVE)
 }
 
+// TODO: move this to a helper function file
+func determineNumberOfDeviceNeeded(memChangeInKib int64, isAttach bool) int {
+	var numberMemoryDevicesNeeded int
+
+	temp := math.Abs(float64(memChangeInKib)) / float64(memoryDeviceSizeInKiB)
+	if isAttach {
+		numberMemoryDevicesNeeded = int(math.Ceil(temp))
+	} else {
+		numberMemoryDevicesNeeded = int(math.Floor(temp))
+	}
+
+	return numberMemoryDevicesNeeded
+}
+
 // Update domain current memory
-func (domain *libvirtDomain) SetCurrentMemory(memInKib uint64) error {
-	return domain.d.SetMemoryFlags(memInKib, libvirt.DOMAIN_MEM_CONFIG|libvirt.DOMAIN_MEM_LIVE)
+// the memory device is 512 Mib each
+func (domain *libvirtDomain) AdjustDomainMemory(memChangeInKib int64) error {
+	glog.V(4).Infof("MemoryChanges in KiB: %v", memChangeInKib)
+	// no memory changes, just return
+	if memChangeInKib == 0 {
+		return nil
+	}
+
+	isAttach := memChangeInKib > 0
+	glog.V(4).Infof("isAttach: %v", isAttach)
+
+	numberMemoryDevicesNeeded := determineNumberOfDeviceNeeded(memChangeInKib, isAttach)
+	glog.V(4).Infof("Number of device needed : %v", numberMemoryDevicesNeeded)
+
+	// TODO: pending design
+	// if number of device needed is 0, and the memory delta is not 0
+	// it means the requested resource is less than the smallest supported device size
+	// to attach or detach, consider this is an error case for now.
+	// if the hutplug/unplug approach is eventually the ONLY way to support vertical scaling, the minimal device size
+	// will need to be aware to VPA so it will round the request to match it. or the round-up is done at the runtime.
+	// TODO: create an error package in project and move all hardcoded error string to it
+	if numberMemoryDevicesNeeded == 0 {
+		return fmt.Errorf("invalid memory change size")
+	}
+
+	for i := 0; i < numberMemoryDevicesNeeded; i++ {
+		var err error
+		if isAttach {
+			glog.V(4).Infof("Attach memory device to domain")
+			err = domain.d.AttachDeviceFlags(memoryDeviceDefinition, libvirt.DOMAIN_DEVICE_MODIFY_CONFIG|libvirt.DOMAIN_DEVICE_MODIFY_LIVE)
+		} else {
+			glog.V(4).Infof("Detach memory device to domain")
+			err = domain.d.DetachDeviceFlags(memoryDeviceDefinition, libvirt.DOMAIN_DEVICE_MODIFY_CONFIG|libvirt.DOMAIN_DEVICE_MODIFY_LIVE)
+		}
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 type libvirtSecret struct {
