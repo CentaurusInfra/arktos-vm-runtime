@@ -107,6 +107,15 @@ func (v *VirtletManager) Run() error {
 	}
 	v.diagSet.RegisterDiagSource("libvirt-xml", libvirttools.NewLibvirtDiagSource(conn, conn))
 
+	handler := libvirttools.NewEventHandler(*v.config.LibvirtURI, v.metadataStore)
+	if handler == nil {
+		return fmt.Errorf("failed to create libvirt event handler: %v", err)
+	}
+
+	if handler.RegisterEventCallBacks() != nil {
+		return fmt.Errorf("failed to create needed libvirt event callbacks: %v", err)
+	}
+
 	virtConfig := libvirttools.VirtualizationConfig{
 		DisableKVM:           *v.config.DisableKVM,
 		EnableSriov:          *v.config.EnableSriov,

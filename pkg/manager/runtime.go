@@ -448,15 +448,10 @@ func (v *VirtletRuntimeService) UpdateRuntimeConfig(context.Context, *kubeapi.Up
 // UpdateContainerResources stores in domain on libvirt info about Cpuset
 // for container then looks for running emulator and tries to adjust its
 // current settings through cgroups
+// the config.ResourceUpdateInProgress provides a simple locking mechanism here instead of
+// adding a pod-containerID based map here to track containers being updated
 func (v *VirtletRuntimeService) UpdateContainerResources(ctx context.Context, req *kubeapi.UpdateContainerResourcesRequest) (*kubeapi.UpdateContainerResourcesResponse, error) {
 	glog.V(4).Infof("Update Container Resources : %v", req)
-	lcr := req.GetLinux()
-	if lcr == nil {
-		glog.Errorf("linuxContainerResource is not set in UpdateContainerResourceRequest")
-		return &kubeapi.UpdateContainerResourcesResponse{}, nil
-	}
-
-	lr := linuxContinerResourceToLinuxResource(lcr)
 
 	containerId := req.ContainerId
 	info, err := v.virtTool.ContainerInfo(containerId)
@@ -464,8 +459,25 @@ func (v *VirtletRuntimeService) UpdateContainerResources(ctx context.Context, re
 		return nil, err
 	}
 
+	// if an resource being updated currently, just ignore the call, kubelet will retry periodically on the request
+	if info.Config.ResourceUpdateInProgress == true {
+		glog.V(4).Infof("VM resource update in progress. Ignore the new request")
+		return &kubeapi.UpdateContainerResourcesResponse{}, nil
+	}
+
+	glog.V(4).Infof("Update VM config to indicate update resource is in progress")
+	v.virtTool.SetUpdateResourceUpdateInProgress(info.Id, true)
+
+	lcr := req.GetLinux()
+	if lcr == nil {
+		glog.Errorf("linuxContainerResource is not set in UpdateContainerResourceRequest")
+		return &kubeapi.UpdateContainerResourcesResponse{}, nil
+	}
+
+	lr := linuxContinerResourceToLinuxResource(lcr)
 	err = cgroups.UpdateVmCgroup(path.Join(info.Config.CgroupParent, containerId), lr)
 	if err != nil {
+		v.virtTool.SetUpdateResourceUpdateInProgress(info.Id, false)
 		return nil, err
 	}
 
@@ -473,6 +485,7 @@ func (v *VirtletRuntimeService) UpdateContainerResources(ctx context.Context, re
 	err = v.virtTool.UpdateDomainResources(containerId, lcr)
 	if err != nil {
 		glog.V(4).Infof("Update Domain Resource failed with error: %v", err)
+		v.virtTool.SetUpdateResourceUpdateInProgress(info.Id, false)
 		return nil, err
 	}
 

@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/golang/glog"
 
 	"github.com/boltdb/bolt"
 
@@ -199,3 +200,43 @@ func (b *boltClient) ImagesInUse() (map[string]bool, error) {
 	}
 	return result, nil
 }
+
+func (b *boltClient) ResourceUpdateInProgress(containerID string) (bool, error) {
+	containerInfo, err := containerMeta{id: containerID, client: b}.Retrieve()
+
+	if err != nil {
+		return false, err
+	}
+
+	return containerInfo.Config.ResourceUpdateInProgress, nil
+
+}
+
+func (b *boltClient) SetResourceUpdateInProgress(containerID string, state bool) error {
+	glog.V(4).Infof("Update resource update in progress for container: %v, state: %v", containerID, state)
+	containerMetadata := &containerMeta{id: containerID, client: b}
+
+	containerInfo, err := containerMeta{id: containerID, client: b}.Retrieve()
+
+	if err != nil {
+		return err
+	}
+
+	if containerInfo.Config.ResourceUpdateInProgress == state {
+		return nil
+	}
+
+	containerInfo.Config.ResourceUpdateInProgress = state
+
+	err = containerMetadata.Save(func(_ *types.ContainerInfo) (*types.ContainerInfo, error) {
+		return containerInfo, nil
+	},)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+

@@ -1092,9 +1092,6 @@ func (v *VirtualizationTool) UpdateDomainResources(vmID string, lcr *kubeapi.Lin
 		return err
 	}
 
-	var cpuUpdated bool
-	var memUpdated bool
-
 	// TODO: enable this after CPU bug fix
 	//glog.V(4).Infof("Update Domain CPU configuration")
 	//err = v.updateDomainCPUs(domain, lcr)
@@ -1102,40 +1099,11 @@ func (v *VirtualizationTool) UpdateDomainResources(vmID string, lcr *kubeapi.Lin
 	//	glog.V(4).Infof("Update Domain CPU configuration failed with error: %v", err)
 	//	return err
 	//}
-	//cpuUpdated = true
 
 	glog.V(4).Infof("Update Domain Memory configuration")
 	err = v.updateDomainMemory(domain, lcr)
 	if err != nil {
 		glog.V(4).Infof("Update Domain Memory configuration failed with error: %v", err)
-		return err
-	}
-	memUpdated = true
-
-	// Update the vm config and metadata stored in Arktos-vm-runtime metadata
-	containerInfo, err := v.metadataStore.Container(vmID).Retrieve()
-	if err != nil {
-		return err
-	}
-
-	if cpuUpdated {
-		containerInfo.Config.CPUShares = lcr.CpuShares
-		containerInfo.Config.CPUQuota = lcr.CpuQuota
-		containerInfo.Config.CPUPeriod = lcr.CpuPeriod
-	}
-
-	if memUpdated {
-		containerInfo.Config.MemoryLimitInBytes = lcr.MemoryLimitInBytes
-	}
-
-	glog.V(4).Infof("Update runtime metadata with config: %v", containerInfo.Config)
-	err = v.metadataStore.Container(vmID).Save(
-		func(_ *types.ContainerInfo) (*types.ContainerInfo, error) {
-			return containerInfo, nil
-		})
-
-	if err != nil {
-		glog.Errorf("Failed to save containerInfo for container: %v", vmID)
 		return err
 	}
 
@@ -1164,6 +1132,27 @@ func (v *VirtualizationTool) updateDomainCPUs(domain virt.Domain, lcr *kubeapi.L
 		}
 	}
 
+	// Update the vm config and metadata stored in Arktos-vm-runtime metadata
+	containerInfo, err := v.metadataStore.Container(domainXml.UUID).Retrieve()
+	if err != nil {
+		return err
+	}
+
+	containerInfo.Config.CPUShares = lcr.CpuShares
+	containerInfo.Config.CPUQuota = lcr.CpuQuota
+	containerInfo.Config.CPUPeriod = lcr.CpuPeriod
+
+	glog.V(4).Infof("Update runtime metadata with config: %v", containerInfo.Config)
+	err = v.metadataStore.Container(domainXml.UUID).Save(
+		func(_ *types.ContainerInfo) (*types.ContainerInfo, error) {
+			return containerInfo, nil
+		})
+
+	if err != nil {
+		glog.Errorf("Failed to save containerInfo for container: %v", domainXml.UUID)
+		return err
+	}
+
 	return nil
 }
 
@@ -1185,12 +1174,14 @@ func (v *VirtualizationTool) updateDomainMemory(domain virt.Domain, lcr *kubeapi
 		return fmt.Errorf("requested memory exceeds Max Memory configuration for the VM")
 	}
 
-	if newMemory != int64(currentMemory) {
-		glog.V(4).Infof("Update domain memory in KiB: %v -> %v", currentMemory, newMemory)
-		err := domain.AdjustDomainMemory(newMemory - currentMemory)
-		if err != nil {
-			return err
-		}
+	if newMemory == currentMemory {
+		return fmt.Errorf("requested memory is the same as current configured memoryß")
+	}
+
+	glog.V(4).Infof("Update domain memory in KiB: %v -> %v", currentMemory, newMemory)
+	err = domain.AdjustDomainMemory(newMemory - currentMemory)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -1300,4 +1291,8 @@ func (v *VirtualizationTool) GetDomainConfigredResources(vmID string) (int64, st
 // essentially the reversed calculation in Kubelet to construct the UpdateContainerRequest
 func (v *VirtualizationTool) getVcpusInRequest(lcr *kubeapi.LinuxContainerResources) int64 {
 	return lcr.CpuQuota / lcr.CpuPeriod
+}
+
+func (v *VirtualizationTool) SetUpdateResourceUpdateInProgress(containerID string, state bool) error {
+	return v.metadataStore.SetResourceUpdateInProgress(containerID, state)
 }

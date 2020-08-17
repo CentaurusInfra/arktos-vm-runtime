@@ -77,6 +77,10 @@ type ContainerStore interface {
 	// ImagesInUse returns a set of images in use by containers in the store.
 	// The keys of the returned map are image names and the values are always true.
 	ImagesInUse() (map[string]bool, error)
+	// Check if a resource setting being updated or not
+	ResourceUpdateInProgress(containerID string) (bool, error)
+	// Update the vmconfig.ResourceUpdateInProgress flag
+	SetResourceUpdateInProgress(containerID string, state bool) error
 }
 
 // Store provides single interface for metadata storage implementation

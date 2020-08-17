@@ -307,10 +307,6 @@ func determineNumberOfDeviceNeeded(memChangeInKib int64, isAttach bool) int {
 // the memory device is 512 Mib each
 func (domain *libvirtDomain) AdjustDomainMemory(memChangeInKib int64) error {
 	glog.V(4).Infof("MemoryChanges in KiB: %v", memChangeInKib)
-	// no memory changes, just return
-	if memChangeInKib == 0 {
-		return nil
-	}
 
 	isAttach := memChangeInKib > 0
 	glog.V(4).Infof("isAttach: %v", isAttach)
