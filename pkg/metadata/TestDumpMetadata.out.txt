@@ -52,6 +52,7 @@ Sandboxes:
           PodNamespace: ""
           PodSandboxID: 69eec606-0493-5825-73a4-c5e0c0236155
           PodTenant: ""
+          ResourceUpdateInProgress: false
           VolumeDevices: null
         CreatedAt: 1531164300000000000
         Id: 1a122822-ebbf-527b-48b4-a96b1b75951b
@@ -112,6 +113,7 @@ Sandboxes:
           PodNamespace: ""
           PodSandboxID: d25ded14-d35d-510b-5749-f83cc165794e
           PodTenant: ""
+          ResourceUpdateInProgress: false
           VolumeDevices: null
         CreatedAt: 1531164300000000000
         Id: d59d8fe6-153f-5959-64a6-6817f77f867a
