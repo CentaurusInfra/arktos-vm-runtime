@@ -1,7 +1,8 @@
 # TODO: generate this tag. unfortunately can't use ARG:
 # https://docs.docker.com/engine/reference/builder/#understand-how-arg-and-from-interact
 # (but add a note about it here for the future)
-FROM arktosstaging/vmruntime-base:v0.1
+# arktosstaging/vmruntime-base:v0.2 is with qemu 4.0.0 + libvirt 6.5.0
+FROM arktosstaging/vmruntime-base:v0.2
 MAINTAINER YunwenBai <yunwen.bai@futurewei.com>
 
 LABEL arktosstaging.image="arktosstaging"
