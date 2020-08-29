@@ -29,13 +29,13 @@ RUN apt-get install -y build-essential libsasl2-dev libdevmapper-dev libgnutls28
     make install && \
     make clean
 
-# build qemu 5.0.0
+# build qemu 4.0.0
 RUN apt-get -y update && \
     apt-get build-dep -y qemu && \
     apt-get install -y checkinstall && \
-    curl -O https://download.qemu.org/qemu-5.0.0.tar.xz && \
-    tar -xvf qemu-5.0.0.tar.xz && \
-    cd qemu-5.0.0 && \
+    curl -O https://download.qemu.org/qemu-4.0.0.tar.xz && \
+    tar -xvf qemu-4.0.0.tar.xz && \
+    cd qemu-4.0.0 && \
     ./configure --target-list=x86_64-softmmu,x86_64-linux-user --cpu=x86_64 && \
     make && \
     checkinstall  --nodoc --backup=no make install && \

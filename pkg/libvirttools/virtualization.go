@@ -1092,13 +1092,15 @@ func (v *VirtualizationTool) UpdateDomainResources(vmID string, lcr *kubeapi.Lin
 		return err
 	}
 
-	// TODO: enable this after CPU bug fix
-	//glog.V(4).Infof("Update Domain CPU configuration")
-	//err = v.updateDomainCPUs(domain, lcr)
-	//if err != nil {
-	//	glog.V(4).Infof("Update Domain CPU configuration failed with error: %v", err)
-	//	return err
-	//}
+	var cpuUpdated bool
+
+	glog.V(4).Infof("Update Domain CPU configuration")
+	err = v.updateDomainCPUs(domain, lcr)
+	if err != nil {
+		glog.V(4).Infof("Update Domain CPU configuration failed with error: %v", err)
+		return err
+	}
+	cpuUpdated = true
 
 	glog.V(4).Infof("Update Domain Memory configuration")
 	err = v.updateDomainMemory(domain, lcr)
