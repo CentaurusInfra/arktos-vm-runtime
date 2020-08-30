@@ -88,6 +88,12 @@ func (v *VirtletManager) Run() error {
 	if err != nil {
 		return fmt.Errorf("failed to create metadata store: %v", err)
 	}
+
+	// Reset the resourceUpdateInProgress flag for existing containers
+	if v.metadataStore.ResetResourceUpdateInProgress() != nil {
+		return fmt.Errorf("failed to reset resourceUpdateInprogress flags in metadata store: %v", err)
+	}
+
 	v.diagSet.RegisterDiagSource("metadata", metadata.GetMetadataDumpSource(v.metadataStore))
 
 	downloader := image.NewDownloader(*v.config.DownloadProtocol)

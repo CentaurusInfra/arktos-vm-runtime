@@ -79,6 +79,17 @@ const (
 	KubernetesContainerNameLabel = "io.kubernetes.container.name"
 )
 
+type domainResources struct {
+	mem       int64
+	memUnit   string
+	cpuShares int64
+	cpuQuota  int64
+	cpuPeriod int64
+	vcpus     int64
+	maxMem    int64
+	maxVcpus  int64
+}
+
 type domainSettings struct {
 	useKvm           bool
 	domainName       string
@@ -1083,8 +1094,36 @@ func (v *VirtualizationTool) RestoreToSnapshot(vmID string, snapshotID string) e
 	return domain.RestoreToSnapshot(snapshotID)
 }
 
+// Check if the resource requested is valid
+// 1. request should be different from what current domain has
+// 2. request should not exceed what ever the max or min settings
+// 3. maybe others in the future
+func (v *VirtualizationTool) ValidateResourceUpdateReqeust(vmID string, lcr *kubeapi.LinuxContainerResources) (memEqual, cpuEqual bool, err error) {
+	domRes, err := v.GetDomainConfigredResources(vmID)
+	if err != nil {
+		return false, false, err
+	}
+	if domRes.maxVcpus < v.getVcpusInRequest(lcr) {
+		return false, false, fmt.Errorf("requested CPUs exceeds Max CPU configuration for the VM")
+	}
+
+	if domRes.maxMem < lcr.MemoryLimitInBytes/int64(defaultLibvirtDomainMemoryUnitValue) {
+		return false, false, fmt.Errorf("requested memory exceeds Max Memory configuration for the VM")
+	}
+
+	if domRes.vcpus == v.getVcpusInRequest(lcr) {
+		cpuEqual = true
+	}
+
+	if domRes.mem == lcr.MemoryLimitInBytes/int64(defaultLibvirtDomainMemoryUnitValue) {
+		memEqual = true
+	}
+
+	return memEqual, cpuEqual, nil
+}
+
 // Live update the VM compute resources
-func (v *VirtualizationTool) UpdateDomainResources(vmID string, lcr *kubeapi.LinuxContainerResources) error {
+func (v *VirtualizationTool) UpdateDomainResources(vmID string, lcr *kubeapi.LinuxContainerResources, updateMem, updateCpu bool) error {
 	glog.V(4).Infof("Update Domain Resources %v, %v", vmID, lcr)
 
 	domain, err := v.domainConn.LookupDomainByUUIDString(vmID)
@@ -1092,21 +1131,23 @@ func (v *VirtualizationTool) UpdateDomainResources(vmID string, lcr *kubeapi.Lin
 		return err
 	}
 
-	var cpuUpdated bool
-
-	glog.V(4).Infof("Update Domain CPU configuration")
-	err = v.updateDomainCPUs(domain, lcr)
-	if err != nil {
-		glog.V(4).Infof("Update Domain CPU configuration failed with error: %v", err)
-		return err
+	if updateCpu {
+		glog.V(4).Infof("Update Domain CPU configuration")
+		err = v.updateDomainCPUs(domain, lcr)
+		if err != nil {
+			glog.V(4).Infof("Update Domain CPU configuration failed with error: %v", err)
+			return err
+		}
+		v.SetUpdateResourceUpdateInProgress(vmID, false)
 	}
-	cpuUpdated = true
 
-	glog.V(4).Infof("Update Domain Memory configuration")
-	err = v.updateDomainMemory(domain, lcr)
-	if err != nil {
-		glog.V(4).Infof("Update Domain Memory configuration failed with error: %v", err)
-		return err
+	if updateMem {
+		glog.V(4).Infof("Update Domain Memory configuration")
+		err = v.updateDomainMemory(domain, lcr)
+		if err != nil {
+			glog.V(4).Infof("Update Domain Memory configuration failed with error: %v", err)
+			return err
+		}
 	}
 
 	return nil
@@ -1120,18 +1161,11 @@ func (v *VirtualizationTool) updateDomainCPUs(domain virt.Domain, lcr *kubeapi.L
 	}
 
 	newVcpus := v.getVcpusInRequest(lcr)
-	glog.V(4).Infof("CPU Info: current CPU number: %v, newCPU number: %v. Max CPU Number: %v",
-		domainXml.VCPU.Current, newVcpus, domainXml.VCPU.Value)
-	if newVcpus > int64(domainXml.VCPU.Value) {
-		return fmt.Errorf("requested CPUs exceeds Max CPU configuration for the VM")
-	}
 
-	if newVcpus != int64(domainXml.VCPU.Current) {
-		glog.V(4).Infof("Update domain vCPU number: %v -> %v", domainXml.VCPU.Current, newVcpus)
-		err := domain.SetVcpus(uint(newVcpus))
-		if err != nil {
-			return err
-		}
+	glog.V(4).Infof("Update domain vCPU number: %v -> %v", domainXml.VCPU.Current, newVcpus)
+	err = domain.SetVcpus(uint(newVcpus))
+	if err != nil {
+		return err
 	}
 
 	// Update the vm config and metadata stored in Arktos-vm-runtime metadata
@@ -1167,18 +1201,7 @@ func (v *VirtualizationTool) updateDomainMemory(domain virt.Domain, lcr *kubeapi
 
 	// memory in KiBs in domain xml, so convert to KiB first
 	currentMemory := int64(domainXml.CurrentMemory.Value)
-	maxMemory := int64(domainXml.MaximumMemory.Value)
 	newMemory := lcr.MemoryLimitInBytes / int64(defaultLibvirtDomainMemoryUnitValue)
-
-	glog.V(4).Infof("Memory Info in KiB: current memory: %v, newMemory: %v. Max memory: %v",
-		currentMemory, newMemory, maxMemory)
-	if newMemory > maxMemory {
-		return fmt.Errorf("requested memory exceeds Max Memory configuration for the VM")
-	}
-
-	if newMemory == currentMemory {
-		return fmt.Errorf("requested memory is the same as current configured memoryß")
-	}
 
 	glog.V(4).Infof("Update domain memory in KiB: %v -> %v", currentMemory, newMemory)
 	err = domain.AdjustDomainMemory(newMemory - currentMemory)
@@ -1196,17 +1219,17 @@ func (v *VirtualizationTool) updateDomainMemory(domain virt.Domain, lcr *kubeapi
 func (v *VirtualizationTool) SyncContainerInfoWithLibvirtDomain(vmID string) (*types.ContainerInfo, error) {
 	glog.V(4).Infof("Sync vm config with libvirt domain settings for VM: %v", vmID)
 
-	mem, memUnit, cpuShares, cpuQuota, cpuPeriod, vcpus, err := v.GetDomainConfigredResources(vmID)
+	domRes, err := v.GetDomainConfigredResources(vmID)
 	if err != nil {
 		return nil, err
 	}
 
-	if memUnit != defaultMemoryUnit && memUnit != "K" {
-		return nil, fmt.Errorf("unexpected Domain MemoryUnit: %v", memUnit)
+	if domRes.memUnit != defaultMemoryUnit && domRes.memUnit != "K" {
+		return nil, fmt.Errorf("unexpected Domain MemoryUnit: %v", domRes.memUnit)
 	}
 
 	glog.V(4).Infof("domain info memory in KiB: memory: %v, memoryUnit: %v, cpuShares: %v, cpuQuota: %v, cpuPeriod: %v, vcpus: %v",
-		mem, memUnit, cpuShares, cpuQuota, cpuPeriod, vcpus)
+		domRes.mem, domRes.memUnit, domRes.cpuShares, domRes.cpuQuota, domRes.cpuPeriod, domRes.vcpus)
 
 	containerInfo, err := v.metadataStore.Container(vmID).Retrieve()
 	if err != nil {
@@ -1222,29 +1245,29 @@ func (v *VirtualizationTool) SyncContainerInfoWithLibvirtDomain(vmID string) (*t
 
 	// always compare with the bigger memUnit to void false positive
 	// due to reduced precision lose errors in bytes-mib conversions
-	if configuredMem != mem {
+	if configuredMem != domRes.mem {
 		glog.V(4).Infof("Memory not synced")
-		containerInfo.Config.MemoryLimitInBytes = mem * KiValue
+		containerInfo.Config.MemoryLimitInBytes = domRes.mem * KiValue
 		needSync = true
 	}
 
-	if containerInfo.Config.CPUPeriod != cpuPeriod {
+	if containerInfo.Config.CPUPeriod != domRes.cpuPeriod {
 		glog.V(4).Infof("CPUPeriod not synced")
-		containerInfo.Config.CPUPeriod = cpuPeriod
+		containerInfo.Config.CPUPeriod = domRes.cpuPeriod
 		needSync = true
 	}
 
 	// libvirt domain's CPUQuota is for per each vcpu
 	// so when comparing the quota from the linux resource in request, need to be multiplied by the vcpus
-	if containerInfo.Config.CPUQuota != cpuQuota*vcpus {
+	if containerInfo.Config.CPUQuota != domRes.cpuQuota*domRes.vcpus {
 		glog.V(4).Infof("CPUQuota not synced")
-		containerInfo.Config.CPUQuota = cpuQuota
+		containerInfo.Config.CPUQuota = domRes.cpuQuota
 		needSync = true
 	}
 
-	if containerInfo.Config.CPUShares != cpuShares {
+	if containerInfo.Config.CPUShares != domRes.cpuShares {
 		glog.V(4).Infof("CPUShares not synced")
-		containerInfo.Config.CPUShares = cpuShares
+		containerInfo.Config.CPUShares = domRes.cpuShares
 		needSync = true
 	}
 
@@ -1268,25 +1291,36 @@ func (v *VirtualizationTool) SyncContainerInfoWithLibvirtDomain(vmID string) (*t
 
 }
 
-func (v *VirtualizationTool) GetDomainConfigredResources(vmID string) (int64, string, int64, int64, int64, int64, error) {
+func (v *VirtualizationTool) GetDomainConfigredResources(vmID string) (*domainResources, error) {
 	domain, err := v.domainConn.LookupDomainByUUIDString(vmID)
 	if err != nil {
-		return 0, "", 0, 0, 0, 0, err
+		return &domainResources{0, "", 0, 0, 0, 0, 0, 0}, err
 	}
 
 	domainXml, err := domain.XML()
 	if err != nil {
-		return 0, "", 0, 0, 0, 0, err
+		return &domainResources{0, "", 0, 0, 0, 0, 0, 0}, err
 	}
 
 	mem := domainXml.Memory.Value
 	memUnit := domainXml.Memory.Unit
+	maxMem := domainXml.MaximumMemory.Value
 
 	cpuShares := domainXml.CPUTune.Shares.Value
 	cpuQuotas := domainXml.CPUTune.Quota.Value
 	cpuPeriod := domainXml.CPUTune.Period.Value
 	vCpus := domainXml.VCPU.Current
-	return int64(mem), memUnit, int64(cpuShares), int64(cpuQuotas), int64(cpuPeriod), int64(vCpus), nil
+	maxVcpus := domainXml.VCPU.Value
+	return &domainResources{
+		int64(mem),
+		memUnit,
+		int64(cpuShares),
+		int64(cpuQuotas),
+		int64(cpuPeriod),
+		int64(vCpus),
+		int64(maxMem),
+		int64(maxVcpus),
+	}, nil
 
 }
 

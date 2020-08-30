@@ -453,6 +453,23 @@ func (v *VirtletRuntimeService) UpdateRuntimeConfig(context.Context, *kubeapi.Up
 func (v *VirtletRuntimeService) UpdateContainerResources(ctx context.Context, req *kubeapi.UpdateContainerResourcesRequest) (*kubeapi.UpdateContainerResourcesResponse, error) {
 	glog.V(4).Infof("Update Container Resources : %v", req)
 
+	lcr := req.GetLinux()
+	if lcr == nil {
+		glog.Errorf("linuxContainerResource is not set in UpdateContainerResourceRequest")
+		return &kubeapi.UpdateContainerResourcesResponse{}, fmt.Errorf("linuxContainerResource is not set")
+	}
+
+	memEqual, cpuEqual, err := v.virtTool.ValidateResourceUpdateReqeust(req.ContainerId, lcr)
+	if lcr == nil {
+		glog.Errorf("Failed to validate the requested resources. Error %v", err)
+		return &kubeapi.UpdateContainerResourcesResponse{}, err
+	}
+
+	if memEqual && cpuEqual {
+		glog.Infof("Requested cpu and memory update is the same as current VM has")
+		return &kubeapi.UpdateContainerResourcesResponse{}, nil
+	}
+
 	containerId := req.ContainerId
 	info, err := v.virtTool.ContainerInfo(containerId)
 	if err != nil {
@@ -468,12 +485,6 @@ func (v *VirtletRuntimeService) UpdateContainerResources(ctx context.Context, re
 	glog.V(4).Infof("Update VM config to indicate update resource is in progress")
 	v.virtTool.SetUpdateResourceUpdateInProgress(info.Id, true)
 
-	lcr := req.GetLinux()
-	if lcr == nil {
-		glog.Errorf("linuxContainerResource is not set in UpdateContainerResourceRequest")
-		return &kubeapi.UpdateContainerResourcesResponse{}, nil
-	}
-
 	lr := linuxContinerResourceToLinuxResource(lcr)
 	err = cgroups.UpdateVmCgroup(path.Join(info.Config.CgroupParent, containerId), lr)
 	if err != nil {
@@ -482,7 +493,7 @@ func (v *VirtletRuntimeService) UpdateContainerResources(ctx context.Context, re
 	}
 
 	// TODO: should revert the CG update if the update domain resource function failed
-	err = v.virtTool.UpdateDomainResources(containerId, lcr)
+	err = v.virtTool.UpdateDomainResources(containerId, lcr, !memEqual, !cpuEqual)
 	if err != nil {
 		glog.V(4).Infof("Update Domain Resource failed with error: %v", err)
 		v.virtTool.SetUpdateResourceUpdateInProgress(info.Id, false)

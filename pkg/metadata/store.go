@@ -88,6 +88,8 @@ type Store interface {
 	SandboxStore
 	ContainerStore
 	io.Closer
+	// Reset the ResourceUpdateInProgress flag when runtime process restarts
+	ResetResourceUpdateInProgress() error
 }
 
 // NewPodSandboxInfo is a factory function for PodSandboxInfo instances

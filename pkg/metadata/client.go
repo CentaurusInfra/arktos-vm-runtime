@@ -18,6 +18,7 @@ package metadata
 
 import (
 	"github.com/boltdb/bolt"
+	"github.com/golang/glog"
 )
 
 type boltClient struct {
@@ -38,4 +39,36 @@ func NewStore(path string) (Store, error) {
 // Close releases all database resources
 func (b boltClient) Close() error {
 	return b.db.Close()
+}
+
+// TODO: Verify libvirt domain update info or callbacks status before reset the resource update in progress flag
+//       if libvirt is still updating it, the don't reset it
+//
+func (b boltClient) ResetResourceUpdateInProgress() error {
+	glog.V(4).Infof("Reset container resource update in progress")
+	sandboxes, err := b.ListPodSandboxes(nil)
+	if err != nil {
+		return err
+	}
+
+	for _, sandbox := range sandboxes {
+		containers, err := b.ListPodContainers(sandbox.GetID())
+		if err != nil {
+			return err
+		}
+
+		for _, container := range containers {
+			containerInfo, err := container.Retrieve()
+			if err != nil {
+				return err
+			}
+
+			if containerInfo.Config.ResourceUpdateInProgress == true {
+				glog.Infof("Reset container resource update in progress flag for container %v", container.GetID())
+				b.SetResourceUpdateInProgress(container.GetID(), false)
+			}
+		}
+	}
+
+	return nil
 }
