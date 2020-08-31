@@ -20,6 +20,7 @@ profile vms flags=(attach_disconnected) {
   /var/log/virtlet/** rw,
   /var/lib/virtlet/vms.procfile w,
   /vms.sh rix,
+  /usr/local/bin/* rwix,
 
   @{PROC}/@{pid}/stat r,
 
