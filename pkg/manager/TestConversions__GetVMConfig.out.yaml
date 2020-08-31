@@ -54,6 +54,7 @@
     PodNamespace: default
     PodSandboxID: 69eec606-0493-5825-73a4-c5e0c0236155
     PodTenant: ""
+    ResourceUpdateInProgress: false
     VolumeDevices: null
 - in:
     config:
@@ -112,6 +113,7 @@
     PodNamespace: default
     PodSandboxID: 69eec606-0493-5825-73a4-c5e0c0236155
     PodTenant: ""
+    ResourceUpdateInProgress: false
     VolumeDevices: null
 - in:
     config:
@@ -175,4 +177,5 @@
     PodNamespace: default
     PodSandboxID: d25ded14-d35d-510b-5749-f83cc165794e
     PodTenant: ""
+    ResourceUpdateInProgress: false
     VolumeDevices: null

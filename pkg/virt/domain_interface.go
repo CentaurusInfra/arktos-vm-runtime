@@ -19,7 +19,6 @@ package virt
 
 import (
 	"errors"
-
 	libvirt "github.com/libvirt/libvirt-go"
 	libvirtxml "github.com/libvirt/libvirt-go-xml"
 )

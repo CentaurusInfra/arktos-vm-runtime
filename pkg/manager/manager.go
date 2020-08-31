@@ -88,6 +88,12 @@ func (v *VirtletManager) Run() error {
 	if err != nil {
 		return fmt.Errorf("failed to create metadata store: %v", err)
 	}
+
+	// Reset the resourceUpdateInProgress flag for existing containers
+	if v.metadataStore.ResetResourceUpdateInProgress() != nil {
+		return fmt.Errorf("failed to reset resourceUpdateInprogress flags in metadata store: %v", err)
+	}
+
 	v.diagSet.RegisterDiagSource("metadata", metadata.GetMetadataDumpSource(v.metadataStore))
 
 	downloader := image.NewDownloader(*v.config.DownloadProtocol)
@@ -106,6 +112,15 @@ func (v *VirtletManager) Run() error {
 		return fmt.Errorf("error establishing libvirt connection: %v", err)
 	}
 	v.diagSet.RegisterDiagSource("libvirt-xml", libvirttools.NewLibvirtDiagSource(conn, conn))
+
+	handler := libvirttools.NewEventHandler(*v.config.LibvirtURI, v.metadataStore)
+	if handler == nil {
+		return fmt.Errorf("failed to create libvirt event handler: %v", err)
+	}
+
+	if handler.RegisterEventCallBacks() != nil {
+		return fmt.Errorf("failed to create needed libvirt event callbacks: %v", err)
+	}
 
 	virtConfig := libvirttools.VirtualizationConfig{
 		DisableKVM:           *v.config.DisableKVM,
