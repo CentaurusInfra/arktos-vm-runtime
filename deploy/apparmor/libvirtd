@@ -70,4 +70,5 @@ profile libvirtd flags=(attach_disconnected) {
   /var/log/virtlet/** rw,
   /vmwrapper rix,
   /libvirt.sh rix,
+  /usr/local/bin/* rwix,
 }

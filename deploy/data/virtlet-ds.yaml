@@ -31,7 +31,7 @@ spec:
       # to the default kubelet plugin dir and ensures that
       # the directories needed by libvirt & virtlet exist on the host
       - name: prepare-node
-        image: arktosstaging/vmruntime:0.5.3
+        image: arktosstaging/vmruntime:0.5.4
         imagePullPolicy: IfNotPresent
         command:
         - /prepare-node.sh
@@ -125,7 +125,7 @@ spec:
 
       containers:
       - name: libvirt
-        image: arktosstaging/vmruntime:0.5.3
+        image: arktosstaging/vmruntime:0.5.4
         # In case we inject local virtlet image we want to use it not officially available one
         imagePullPolicy: IfNotPresent
         command:
@@ -168,7 +168,7 @@ spec:
             - -c
             - socat - UNIX:/var/run/libvirt/libvirt-sock-ro </dev/null
       - name: virtlet
-        image: arktosstaging/vmruntime:0.5.3
+        image: arktosstaging/vmruntime:0.5.4
         # In case we inject local virtlet image we want to use it not officially available one
         imagePullPolicy: IfNotPresent
         volumeMounts:
@@ -219,7 +219,7 @@ spec:
             - -c
             - socat - UNIX:/run/virtlet.sock </dev/null
       - name: vms
-        image: arktosstaging/vmruntime:0.5.3
+        image: arktosstaging/vmruntime:0.5.4
         imagePullPolicy: IfNotPresent
         command:
         - /vms.sh
